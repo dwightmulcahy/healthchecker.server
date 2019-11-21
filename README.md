@@ -1,3 +1,5 @@
+# Health check parameters
+
 **Ping Protocol**
 
 The protocol to use to connect with the instance.

@@ -1,7 +1,7 @@
 import datetime
 
 
-class UpTime():
+class UpTime:
     def __init__(self):
         self.startDatetime = datetime.datetime.now()
 

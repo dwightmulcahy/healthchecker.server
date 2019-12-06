@@ -8,8 +8,9 @@ from flask_api import status
 from healthcheck_server import requestsRetrySession, HEALTHCHECK_URL
 
 
-class Status(Enum):
+class HealthStatus(Enum):
     PASS = "pass"
+    DEGRADED = "degraded"
     FAIL = "fail"
 
     def __str__(self):
@@ -19,10 +20,13 @@ class Status(Enum):
 class HealthCheckResponse:
     def __init__(self):
         self.responseDict = {}
-        self.responseDict["status"] = Status.FAIL
+        self.responseDict["status"] = HealthStatus.FAIL
         self.responseDict["version"] = "1"
 
-    def status(self, stat=Status.PASS):
+        # TODO: fill in all the fields for this status.  Look at what the required ones are.
+        #  https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html
+
+    def status(self, stat=HealthStatus.PASS):
         self.custom("status", str(stat))
         return self
 
@@ -66,28 +70,31 @@ class HealthCheckServer:
     @staticmethod
     def post(endpoint, formDict):
         try:
-            res = requestsRetrySession().post('http://' + HEALTHCHECK_URL + '/healthcheck/' + endpoint, data=formDict)
-            return res.status_code
+            return requestsRetrySession().post(HEALTHCHECK_URL + endpoint, data=formDict, headers={'Cache-Control': 'no-cache'}).status_code
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     @staticmethod
     def get(endpoint, paramsDict):
         try:
-            res = requestsRetrySession().get('http://' + HEALTHCHECK_URL + '/healthcheck/' + endpoint, params=paramsDict)
-            return res.status_code
+            return requestsRetrySession().get(HEALTHCHECK_URL + endpoint, params=paramsDict, headers={'Cache-Control': 'no-cache'}).status_code
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     @staticmethod
-    def monitor(app, url, emailAddr, timeout=5, interval=30, unhealthy=2, healthy=10):
+    def monitor(app, url, emailAddr='', timeout=5, interval=30, unhealthy=2, healthy=10):
         params = {
             'appname': app,
             'url': url,
+            #   email addr to send email when unhealthy
             'email': emailAddr,
+            #   Response Timeout: 5 sec (2-60sec)
             'timeout': timeout,
+            #   HealthCheck Interval: 30 sec (5-300sec)
             'interval': interval,
+            #   Unhealthy Threshold: 2 times (2-10)
             'unhealthy_threshold':  unhealthy,
+            #   Healthy Threshold: 10 time (2-10)
             'healthy_threshold': healthy,
         }
         return HealthCheckServer.post('monitor', formDict=params)

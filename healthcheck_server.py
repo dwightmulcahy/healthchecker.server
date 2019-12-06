@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-import os
 import flask
 
 # https://github.com/agronholm/apscheduler
@@ -25,7 +24,8 @@ import prettytable
 logging.basicConfig(format='%(asctime)s-%(levelname)s: %(message)s', datefmt='%d-%b %H:%M:%S', level=logging.INFO)
 
 HEALTHCHECK_PORT = 8998
-HEALTHCHECK_URL = f'0.0.0.0:{HEALTHCHECK_PORT}'
+HEALTHCHECK_URL = f'http://0.0.0.0:{HEALTHCHECK_PORT}/healthcheck/'
+
 
 # This creates a session request that will retry with backoff timing.
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None ):
@@ -54,7 +54,7 @@ sched = BackgroundScheduler()
 # Dictionary of apps monitor
 appsMonitored = {}
 
-
+# TODO: enable sending email if it is defined in the monitor object
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
     logging.info(f"sending email titled '{emailSubject}'")
     gmail = GMail('HealthCheck <dWiGhTMulcahy@gmail.com>', 'quagklyvvjqknoxp')
@@ -74,6 +74,8 @@ def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
 def health():
     logging.info(f'{APP_NAME} /health endpoint executing')
     currentDatetime = datetime.datetime.now()
+
+    # TODO: change this to use the HealthCheckResponse class
     healthCheckJson = {
         "status": "pass",
         "version": "1",
@@ -102,6 +104,8 @@ def hello():
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
+# TODO: think about adding component healthChecks to this...
+
 @app.route('/healthcheck/monitor', methods=['POST'])
 def monitorRequest():
     # - endpoint to register an app to monitor
@@ -123,7 +127,7 @@ def monitorRequest():
         if appData['unhealthy'] >= appData['unhealthy_threshold']:
             # reset the healthy counter if we meet the requirements for unhealthy
             appData['healthy'] = 0
-        logging.warning(f'`{appname} tried to reregister again.`')
+        logging.warning(f'`{appname}` tried to reregister again.')
         return f'`{appname}` is already being monitored', status.HTTP_409_CONFLICT
 
     appname = request.form['appname']
@@ -144,7 +148,7 @@ def monitorRequest():
             or timeout >= 60 or interval > 300 or unhealthy_threshold > 10 or healthy_threshold > 10:
         # return error processing
         logging.error(f'`{appname}` tried to register with the invalid parameters.')
-        return f'One or more parameters for app `{appname} out of range`.\nPlease refer to docs for valid parameter ranges.', \
+        return f'One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.', \
                status.HTTP_406_NOT_ACCEPTABLE
     else:
         # store off the parameters for the job
@@ -171,7 +175,7 @@ def monitorRequest():
 
 
 def healthCheck(appname):
-    logging.info(f'Doing healthcheck for {appname}.')
+    logging.info(f'Doing healthcheck for `{appname}`.')
     # thread worker to monitor an app
     appData = appsMonitored[appname]
     healthUrl = appData['url'] + '/health'
@@ -218,9 +222,9 @@ def healthCheck(appname):
             logging.error(f'`{appname}` is unhealthy')
         appData['health'] = "Unhealthy"
     elif appData['unhealthy_threshold'] > 2 and unhealthy >= 2:
-        if appData['health'] != "Sick":
-            logging.warning(f'`{appname}` is getting sick')
-        appData['health'] = "Sick"
+        if appData['health'] != "Degraded":
+            logging.warning(f'`{appname}` is degraded')
+        appData['health'] = "Degraded"
     else:
         appData['health'] = "Unknown"
 
@@ -260,8 +264,9 @@ def resume():
 
 
 @app.route('/healthcheck/info')
-def info(appname):
+def info():
     # show a webpage with all the apps monitored and last status
+    appname = request.args.get('appname')
     return make_response(jsonify(appsMonitored[appname]), status.HTTP_200_OK)
 
 
@@ -269,6 +274,7 @@ def info(appname):
 def statusPage():
     # show a webpage with all the apps monitored and last status
     return make_response(jsonify(appsMonitored), status.HTTP_501_NOT_IMPLEMENTED)
+    # return make_response(jsonify(appsMonitored), status.HTTP_200_OK)
 
 
 if __name__ == '__main__':

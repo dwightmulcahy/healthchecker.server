@@ -5,6 +5,8 @@ from enum import Enum
 
 from flask import jsonify, make_response
 from flask_api import status
+from zeroconf import Zeroconf
+
 from healthcheck_server import requestsRetrySession, HEALTHCHECK_URL
 
 
@@ -63,26 +65,43 @@ class HealthCheckResponse:
         return make_response(jsonify(self.responseDict), status.HTTP_200_OK)
 
 
+TYPE = "_http._tcp.local."
+SERVICE_NAME = "healthcheck"
+
 class HealthCheckServer:
     def __init__(self):
-        pass
+        # get the HealthCheck Server info from zeroconf
+        r = Zeroconf()
+        hcInfo = r.get_service_info(TYPE, f'{SERVICE_NAME}.{TYPE}')
+        if hcInfo:
+            self.healthCheckUrl = f'http://{hcInfo.parsed_addresses()[0]}:{hcInfo.port}/healthcheck/'
+        else:
+            self.healthCheckUrl = 'ServiceNotFound'
+        r.close()
 
-    @staticmethod
-    def post(endpoint, formDict):
+    def status(self):
+        if self.healthCheckUrl == 'ServiceNotFound':
+            return status.HTTP_503_SERVICE_UNAVAILABLE
+        else:
+            return status.HTTP_200_OK
+
+    def post(self, endpoint, formDict):
+        if self.healthCheckUrl == 'ServiceNotFound':
+            return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
-            return requestsRetrySession().post(HEALTHCHECK_URL + endpoint, data=formDict, headers={'Cache-Control': 'no-cache'}).status_code
+            return requestsRetrySession().post(self.healthCheckUrl + endpoint, data=formDict, headers={'Cache-Control': 'no-cache'}).status_code
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    @staticmethod
-    def get(endpoint, paramsDict):
+    def get(self, endpoint, paramsDict):
+        if self.healthCheckUrl == 'ServiceNotFound':
+            return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
-            return requestsRetrySession().get(HEALTHCHECK_URL + endpoint, params=paramsDict, headers={'Cache-Control': 'no-cache'}).status_code
+            return requestsRetrySession().get(self.healthCheckUrl + endpoint, params=paramsDict, headers={'Cache-Control': 'no-cache'}).status_code
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    @staticmethod
-    def monitor(app, url, emailAddr='', timeout=5, interval=30, unhealthy=2, healthy=10):
+    def monitor(self, app, url, emailAddr='', timeout=5, interval=30, unhealthy=2, healthy=10):
         params = {
             'appname': app,
             'url': url,
@@ -97,20 +116,16 @@ class HealthCheckServer:
             #   Healthy Threshold: 10 time (2-10)
             'healthy_threshold': healthy,
         }
-        return HealthCheckServer.post('monitor', formDict=params)
+        return self.post('monitor', formDict=params)
 
-    @staticmethod
-    def stop(appname):
-        return HealthCheckServer.get('stop', paramsDict={'appname': appname})
+    def stop(self, appname):
+        return self.get('stop', paramsDict={'appname': appname})
 
-    @staticmethod
-    def pause(appname):
-        return HealthCheckServer.get('pause', paramsDict={'appname': appname})
+    def pause(self, appname):
+        return self.get('pause', paramsDict={'appname': appname})
 
-    @staticmethod
-    def resume(appname):
-        return HealthCheckServer.get('resume', paramsDict={'appname': appname})
+    def resume(self, appname):
+        return self.get('resume', paramsDict={'appname': appname})
 
-    @staticmethod
-    def info(appname):
-        return HealthCheckServer.get('info', paramsDict={'appname': appname})
+    def info(self, appname):
+        return self.get('info', paramsDict={'appname': appname})

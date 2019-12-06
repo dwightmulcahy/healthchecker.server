@@ -1,6 +1,8 @@
 import datetime
 import json
 import logging
+import socket
+
 import flask
 
 # https://github.com/agronholm/apscheduler
@@ -10,6 +12,8 @@ from flask import request, abort, make_response
 from flask.json import jsonify
 from flask_api import status
 from gmail import GMail, Message
+from zeroconf import Zeroconf, ServiceInfo
+
 from uptime import UpTime
 import requests
 from requests.adapters import HTTPAdapter
@@ -23,8 +27,9 @@ import prettytable
 # logging format
 logging.basicConfig(format='%(asctime)s-%(levelname)s: %(message)s', datefmt='%d-%b %H:%M:%S', level=logging.INFO)
 
+HEALTHCHECK_ADDR = '0.0.0.0'
 HEALTHCHECK_PORT = 8998
-HEALTHCHECK_URL = f'http://0.0.0.0:{HEALTHCHECK_PORT}/healthcheck/'
+HEALTHCHECK_URL = f'http://{HEALTHCHECK_ADDR}:{HEALTHCHECK_PORT}/healthcheck/'
 
 
 # This creates a session request that will retry with backoff timing.
@@ -54,7 +59,6 @@ sched = BackgroundScheduler()
 # Dictionary of apps monitor
 appsMonitored = {}
 
-# TODO: enable sending email if it is defined in the monitor object
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
     logging.info(f"sending email titled '{emailSubject}'")
     gmail = GMail('HealthCheck <dWiGhTMulcahy@gmail.com>', 'quagklyvvjqknoxp')
@@ -216,14 +220,20 @@ def healthCheck(appname):
     if unhealthy == 0 and healthy >= appData['healthy_threshold']:
         if appData['health'] != "Healthy":
             logging.info(f'`{appname}` is back to healthy')
+            if appData['emailAddr']:
+                sendEmail(appData['emailAddr'], '', '', f'`{appname}` is back to healthy')
         appData['health'] = "Healthy"
     elif healthy == 0 and unhealthy >= appData['unhealthy_threshold']:
         if appData['health'] != "Unhealthy":
             logging.error(f'`{appname}` is unhealthy')
+            if appData['emailAddr']:
+                sendEmail(appData['emailAddr'], '', '', f'`{appname}` is unhealthy')
         appData['health'] = "Unhealthy"
     elif appData['unhealthy_threshold'] > 2 and unhealthy >= 2:
         if appData['health'] != "Degraded":
             logging.warning(f'`{appname}` is degraded')
+            if appData['emailAddr']:
+                sendEmail(appData['emailAddr'], '', '', f'`{appname}` is degraded')
         appData['health'] = "Degraded"
     else:
         appData['health'] = "Unknown"
@@ -285,6 +295,8 @@ if __name__ == '__main__':
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
+    # TODO: enable all of the following to use ENV variables
+
     # HTTP_PORT = int(os.environ.get('PORT', HEALTHCHECK_PORT))
     # BIND_ADDRESS = os.environ.get('BIND_ADDRESS', '127.0.0.1')
     # logging.info(f'Bind Address: {BIND_ADDRESS}:{HTTP_PORT}')
@@ -294,10 +306,25 @@ if __name__ == '__main__':
     # start the scheduler out... nothing to do right now
     sched.start()
 
-    logging.info('Press Ctrl+C to exit.')
+    # register the service with zeroconf
+    r = Zeroconf()
+    addresses = [socket.inet_aton(HEALTHCHECK_ADDR)]
+    if socket.has_ipv6:
+        addresses.append(socket.inet_pton(socket.AF_INET6, '::1'))
+    logging.info(f'registering service healthcheck._http._tcp.local. at {HEALTHCHECK_ADDR}:{HEALTHCHECK_PORT}')
+    info = ServiceInfo(
+        "_http._tcp.local.", "healthcheck._http._tcp.local.",
+        addresses=addresses, port=HEALTHCHECK_PORT,
+        properties={'version': '0.9Beta', 'desc': 'health check micro-service'}
+    )
+    r.register_service(info)
+
+    logging.info('running restapi server press Ctrl+C to exit.')
     try:
-        app.run(host='0.0.0.0', port=HEALTHCHECK_PORT, debug=False)
+        app.run(host=HEALTHCHECK_ADDR, port=HEALTHCHECK_PORT, debug=False)
     except (KeyboardInterrupt, SystemExit):
         # Not strictly necessary if daemonic mode is enabled but should be done if possible
         logging.info('Shutting down scheduler task.')
         sched.shutdown()
+        r.unregister_service(info)
+        r.close()

@@ -59,6 +59,8 @@ sched = BackgroundScheduler()
 # Dictionary of apps monitor
 appsMonitored = {}
 
+# TODO: change the GMAIL_API_TOKEN to be configured/ENV
+
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
     logging.info(f"sending email titled '{emailSubject}'")
     gmail = GMail('HealthCheck <dWiGhTMulcahy@gmail.com>', 'quagklyvvjqknoxp')
@@ -296,6 +298,8 @@ if __name__ == '__main__':
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
     # TODO: enable all of the following to use ENV variables
+
+    # GMAIL_API_TOKEN = int(os.environ.get('GMAIL_API_TOKEN', None))
 
     # HTTP_PORT = int(os.environ.get('PORT', HEALTHCHECK_PORT))
     # BIND_ADDRESS = os.environ.get('BIND_ADDRESS', '127.0.0.1')

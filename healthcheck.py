@@ -79,6 +79,9 @@ class HealthCheckServer:
             self.healthCheckUrl = 'ServiceNotFound'
         r.close()
 
+    def url(self):
+        return self.healthCheckUrl
+
     def status(self):
         if self.healthCheckUrl == 'ServiceNotFound':
             return status.HTTP_503_SERVICE_UNAVAILABLE

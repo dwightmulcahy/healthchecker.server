@@ -40,6 +40,8 @@ if __name__ == '__main__':
     hcs = healthCheckServer.monitor(app=APP_NAME, url=f'{BIND_ADDRESS}:{PORT}', emailAddr='dwightmulcahy@gmail.com')
     if not is_success(hcs):
         logging.warning(f'Health Check microservice returned a status of {hcs} ({responses[hcs]})')
+    else:
+        logging.info(f'Registered with Health Check microservice at {healthCheckServer.url()}')
 
     logging.info('Press Ctrl+C to exit.')
     try:

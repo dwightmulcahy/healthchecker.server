@@ -1,0 +1,1 @@
+web: python3 healthcheck_server.py

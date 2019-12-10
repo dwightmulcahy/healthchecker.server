@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import os
 import socket
 
 import flask
@@ -27,9 +28,9 @@ import prettytable
 # logging format
 logging.basicConfig(format='%(asctime)s-%(levelname)s: %(message)s', datefmt='%d-%b %H:%M:%S', level=logging.INFO)
 
-HEALTHCHECK_ADDR = '0.0.0.0'
-HEALTHCHECK_PORT = 8998
-HEALTHCHECK_URL = f'http://{HEALTHCHECK_ADDR}:{HEALTHCHECK_PORT}/healthcheck/'
+DEFAULT_HEALTHCHECK_ADDR = '0.0.0.0'
+DEFAULT_HEALTHCHECK_PORT = 8998
+# HEALTHCHECK_URL = f'http://{DEFAULT_HEALTHCHECK_ADDR}:{DEFAULT_HEALTHCHECK_PORT}/healthcheck/'
 
 
 # This creates a session request that will retry with backoff timing.
@@ -59,12 +60,11 @@ sched = BackgroundScheduler()
 # Dictionary of apps monitor
 appsMonitored = {}
 
-# TODO: change the GMAIL_API_TOKEN to be configured/ENV
 
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
     logging.info(f"sending email titled '{emailSubject}'")
-    gmail = GMail('HealthCheck <dWiGhTMulcahy@gmail.com>', 'quagklyvvjqknoxp')
-    messageBody = messageBody + '\n\n\nEmail send by HealthCheck.'
+    gmail = GMail('HealthCheck <dWiGhTMulcahy@gmail.com>', GMAIL_API_TOKEN)
+    messageBody = messageBody + '\n\nEmail send by HealthCheck.'
     msg = Message(emailSubject, to=sendTo, bcc='dWiGhT <dWiGhTMulcahy@gmail.com>',
                   text=messageBody, html=htmlMessageBody, reply_to='do@notreply.com')
     gmail.send(msg)
@@ -297,35 +297,31 @@ if __name__ == '__main__':
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
-    # TODO: enable all of the following to use ENV variables
-
-    # GMAIL_API_TOKEN = int(os.environ.get('GMAIL_API_TOKEN', None))
-
-    # HTTP_PORT = int(os.environ.get('PORT', HEALTHCHECK_PORT))
-    # BIND_ADDRESS = os.environ.get('BIND_ADDRESS', '127.0.0.1')
-    # logging.info(f'Bind Address: {BIND_ADDRESS}:{HTTP_PORT}')
-    # DEBUG = 'true' == os.environ.get('DEBUG', 'false').lower()
-    # logging.info(f'Debug set to {DEBUG}')
+    GMAIL_API_TOKEN = os.environ.get('GMAIL_API_TOKEN', 'quagklyvvjqknoxp')
+    HTTP_PORT = int(os.environ.get('PORT', DEFAULT_HEALTHCHECK_PORT))
+    BIND_ADDRESS = os.environ.get('BIND_ADDRESS', DEFAULT_HEALTHCHECK_ADDR)
+    logging.info(f'Bind Address: {BIND_ADDRESS}:{HTTP_PORT}')
+    DEBUG = 'true' == os.environ.get('DEBUG', 'false').lower()
+    logging.info(f'Debug set to {DEBUG}')
 
     # start the scheduler out... nothing to do right now
     sched.start()
 
     # register the service with zeroconf
     r = Zeroconf()
-    addresses = [socket.inet_aton(HEALTHCHECK_ADDR)]
+    addresses = [socket.inet_aton(BIND_ADDRESS)]
     if socket.has_ipv6:
         addresses.append(socket.inet_pton(socket.AF_INET6, '::1'))
-    logging.info(f'registering service healthcheck._http._tcp.local. at {HEALTHCHECK_ADDR}:{HEALTHCHECK_PORT}')
+    logging.info(f'registering service healthcheck._http._tcp.local. at {BIND_ADDRESS}:{HTTP_PORT}')
     info = ServiceInfo(
-        "_http._tcp.local.", "healthcheck._http._tcp.local.",
-        addresses=addresses, port=HEALTHCHECK_PORT,
+        "_http._tcp.local.", "healthcheck._http._tcp.local.",  addresses=addresses, port=HTTP_PORT,
         properties={'version': '0.9Beta', 'desc': 'health check micro-service'}
     )
     r.register_service(info)
 
     logging.info('running restapi server press Ctrl+C to exit.')
     try:
-        app.run(host=HEALTHCHECK_ADDR, port=HEALTHCHECK_PORT, debug=False)
+        app.run(host=DEFAULT_HEALTHCHECK_ADDR, port=DEFAULT_HEALTHCHECK_PORT, debug=False)
     except (KeyboardInterrupt, SystemExit):
         # Not strictly necessary if daemonic mode is enabled but should be done if possible
         logging.info('Shutting down scheduler task.')

@@ -7,7 +7,7 @@ from flask import jsonify, make_response
 from flask_api import status
 from zeroconf import Zeroconf
 
-from healthcheck_server import requestsRetrySession, HEALTHCHECK_URL
+from healthcheck_server import requestsRetrySession
 
 
 class HealthStatus(Enum):

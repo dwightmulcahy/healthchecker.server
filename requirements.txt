@@ -1,3 +1,4 @@
+zeroconf
 requests
 apscheduler
 Flask-API.yandex

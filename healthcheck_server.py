@@ -9,7 +9,7 @@ import flask
 # https://github.com/agronholm/apscheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from flask import request, abort, make_response
+from flask import request, make_response
 from flask.json import jsonify
 from flask_api import status
 from gmail import GMail, Message
@@ -312,9 +312,9 @@ if __name__ == '__main__':
     addresses = [socket.inet_aton(BIND_ADDRESS)]
     if socket.has_ipv6:
         addresses.append(socket.inet_pton(socket.AF_INET6, '::1'))
-    logging.info(f'registering service healthcheck._http._tcp.local. at {BIND_ADDRESS}:{HTTP_PORT}')
+    logging.info(f'registering service _healthcheck._http._tcp.local. at {BIND_ADDRESS}:{HTTP_PORT}')
     info = ServiceInfo(
-        "_http._tcp.local.", "healthcheck._http._tcp.local.",  addresses=addresses, port=HTTP_PORT,
+        "_http._tcp.local.", "_healthcheck._http._tcp.local.",  addresses=addresses, port=HTTP_PORT,
         properties={'version': '0.9Beta', 'desc': 'health check micro-service'}
     )
     r.register_service(info)

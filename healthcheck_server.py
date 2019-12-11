@@ -309,10 +309,12 @@ if __name__ == '__main__':
 
     # register the service with zeroconf
     r = Zeroconf()
-    addresses = [socket.inet_aton(BIND_ADDRESS)]
+    logging.info(f'hostname {socket.gethostname()}')
+    logging.info(f'IP {socket.gethostbyname(socket.gethostname())}')
+    addresses = [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
     if socket.has_ipv6:
         addresses.append(socket.inet_pton(socket.AF_INET6, '::1'))
-    logging.info(f'registering service _healthcheck._http._tcp.local. at {BIND_ADDRESS}:{HTTP_PORT}')
+    logging.info(f'registering service _healthcheck._http._tcp.local. at {socket.gethostname()}:{HTTP_PORT}')
     info = ServiceInfo(
         "_http._tcp.local.", "_healthcheck._http._tcp.local.",  addresses=addresses, port=HTTP_PORT,
         properties={'version': '0.9Beta', 'desc': 'health check micro-service'}

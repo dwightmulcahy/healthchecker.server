@@ -66,7 +66,7 @@ class HealthCheckResponse:
 
 
 TYPE = "_http._tcp.local."
-SERVICE_NAME = "healthcheck"
+SERVICE_NAME = "_healthcheck"
 
 class HealthCheckServer:
     def __init__(self):

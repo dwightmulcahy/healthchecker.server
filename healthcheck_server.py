@@ -289,6 +289,18 @@ def statusPage():
     # return make_response(jsonify(appsMonitored), status.HTTP_200_OK)
 
 
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('8.8.8.8', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 if __name__ == '__main__':
     logging.info(f'Started {APP_NAME}')
 
@@ -309,9 +321,7 @@ if __name__ == '__main__':
 
     # register the service with zeroconf
     r = Zeroconf()
-    logging.info(f'hostname {socket.gethostname()}')
-    logging.info(f'IP {socket.gethostbyname(socket.gethostname())}')
-    addresses = [socket.inet_aton(socket.gethostbyname(socket.gethostname()))]
+    addresses = [socket.inet_aton(get_ip())]
     if socket.has_ipv6:
         addresses.append(socket.inet_pton(socket.AF_INET6, '::1'))
     logging.info(f'registering service _healthcheck._http._tcp.local. at {socket.gethostname()}:{HTTP_PORT}')

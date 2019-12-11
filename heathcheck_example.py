@@ -37,6 +37,7 @@ if __name__ == '__main__':
 
     # register with the HealthCheck Server that we want to be monitored
     healthCheckServer = HealthCheckServer()
+    logging.info(f'HealthCheck_server URL: {healthCheckServer.url()}')
     hcs = healthCheckServer.monitor(app=APP_NAME, url=f'{BIND_ADDRESS}:{PORT}', emailAddr='dwightmulcahy@gmail.com')
     if not is_success(hcs):
         logging.warning(f'Health Check microservice returned a status of {hcs} ({responses[hcs]})')

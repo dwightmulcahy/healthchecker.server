@@ -140,7 +140,7 @@ def monitorRequest():
         logging.error(f"`{appname}` tried to register without the minimum parameters.")
         return make_response(
             f"Invalid parameters for app `{appname}`.\nMinimal request should have `appname` and `url` defined.",
-            status.HTTP_406_NOT_ACCEPTABLE,
+            status.HTTP_400_BAD_REQUEST,
         )
 
     # if the app is trying to register again then there probably is something
@@ -153,7 +153,7 @@ def monitorRequest():
             appData.healthy = 0
         logging.warning(f"`{appname}` tried to reregister again.")
         sched.resume_job(job_id=appname)
-        return f"`{appname}` is already being monitored", status.HTTP_409_CONFLICT
+        return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
     appname = request.form["appname"]
     url = request.form["url"]

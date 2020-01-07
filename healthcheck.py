@@ -1,3 +1,8 @@
+import sys
+if not sys.version_info > (3, 6):
+    print('Python3.6 is required to run this')
+    sys.exit(-1)
+
 from enum import Enum
 
 from flask import jsonify, make_response

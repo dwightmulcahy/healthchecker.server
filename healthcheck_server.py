@@ -1,5 +1,4 @@
 import sys
-
 if not sys.version_info > (3, 7):
     print('Python3.7 is required to run this')
     sys.exit(-1)

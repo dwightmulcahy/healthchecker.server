@@ -1,7 +1,10 @@
-# logging format
-import logging
+import sys
+if not sys.version_info > (3, 6):
+    print('Python3.6 is required to run this')
+    sys.exit(-1)
+
 from http.client import responses
-from logging import basicConfig, getLogger, warning, ERROR, INFO, info
+from logging import basicConfig, warning, INFO, info
 
 import flask
 from flask_api.status import is_success
@@ -46,7 +49,8 @@ if __name__ == "__main__":
 
     info(f"HealthCheck_server URL: {healthCheckServer.url()}")
     hcs = healthCheckServer.monitor(
-        app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}", emailAddr="dwightmulcahy@gmail.com"
+        app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}", emailAddr="dwightmulcahy@gmail.com",
+        interval=10, unhealthy=2, healthy=4
     )
     if not is_success(hcs):
         warning(f"Health Check microservice returned a status of {hcs} ({responses[hcs]})")

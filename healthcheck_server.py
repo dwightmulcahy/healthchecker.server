@@ -33,6 +33,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+app = flask.Flask(__name__)
+
 APP_NAME = "HealthCheck microservice"
 uptime = UpTime()
 
@@ -48,6 +50,11 @@ appsMonitored = {}
 
 
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
+    if not sendTo:
+        return
+    if not htmlMessageBody:
+        htmlMessageBody = messageBody
+
     logging.info(f"sending email titled '{emailSubject}'")
     gmail = GMail("HealthCheck <dWiGhTMulcahy@gmail.com>", GMAIL_API_TOKEN)
     messageBody = messageBody + "\n\nEmail send by HealthCheck."
@@ -102,6 +109,27 @@ def hello():
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
+@dataclass
+class AppData:
+    DEFAULT_TIME_OUT = 5
+    DEFAULT_INTERVAL = 30
+    DEFAULT_UNHEALTHY_THRESHOLD = 2
+    DEFAULT_HEALTHY_THRESHOLD = 10
+
+    url: str = ''
+    emailAddr: str = ''
+    timeout: int = DEFAULT_TIME_OUT
+    interval: int = DEFAULT_INTERVAL
+    unhealthy_threshold: int = DEFAULT_UNHEALTHY_THRESHOLD
+    healthy_threshold: int = DEFAULT_HEALTHY_THRESHOLD
+    lastcheck: datetime.datetime = None
+    lasthealthy: datetime.datetime = None
+    health: str = 'Pending'
+    healthchecks: List[datetime.datetime] = field(default_factory=list)
+    unhealthy: int = 0
+    healthy: int = 0
+
+
 @app.route("/healthcheck/monitor", methods=["POST"])
 def monitorRequest():
     # - endpoint to register an app to monitor
@@ -120,10 +148,10 @@ def monitorRequest():
     # wrong with the app.  Possibly erroring out and restarting?
     if appname in appsMonitored:
         appData = appsMonitored[appname]
-        appData["unhealthy"] += (1 if appData["unhealthy"] < appData["unhealthy_threshold"] else 0)
-        if appData["unhealthy"] >= appData["unhealthy_threshold"]:
+        appData.unhealthy += (1 if appData.unhealthy < appData.unhealthy_threshold else 0)
+        if appData.unhealthy >= appData.unhealthy_threshold:
             # reset the healthy counter if we meet the requirements for unhealthy
-            appData["healthy"] = 0
+            appData.healthy = 0
         logging.warning(f"`{appname}` tried to reregister again.")
         sched.resume_job(job_id=appname)
         return f"`{appname}` is already being monitored", status.HTTP_409_CONFLICT
@@ -156,20 +184,7 @@ def monitorRequest():
         )
     else:
         # store off the parameters for the job
-        appsMonitored[appname] = {
-            "url": "http://" + url,
-            "emailAddr": emailAddr,
-            "timeout": timeout,
-            "interval": interval,
-            "unhealthy_threshold": unhealthy_threshold,
-            "healthy_threshold": healthy_threshold,
-            "lastcheck": None,
-            "lasthealthy": None,
-            "health": "Pending",
-            "healthchecks": [],
-            "unhealthy": 0,
-            "healthy": 0,
-        }
+        appsMonitored[appname] = AppData("http://" + url, emailAddr, timeout, interval, unhealthy_threshold, healthy_threshold)
 
         # create a job with the above parameters
         logging.info(f"Scheduling health check job for `{appname}` to {url} at {interval} seconds intervals.")
@@ -184,11 +199,15 @@ def monitorRequest():
 
 # This is the scheduled job that checks the status of the app
 def healthCheck(appname):
+    HEALTHY = "Healthy"
+    WARN = "Warn"
+    UNHEALTHY = "Unhealthy"
+
     logging.info(f"Doing healthcheck for `{appname}`.")
     # thread worker to monitor an app
     appData = appsMonitored[appname]
-    healthUrl = appData["url"] + "/health"
-    healthTimeout = appData["timeout"]
+    healthUrl = appData.url + "/health"
+    healthTimeout = appData.timeout
 
     # make the request to the <appUrl>/health endpoint
     statusCode = status.HTTP_200_OK
@@ -203,63 +222,49 @@ def healthCheck(appname):
     except:
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
-    appData["lastcheck"] = datetime.datetime.now()
-    appData["healthchecks"].append((appData["lastcheck"], statusCode))
-    if len(appData["healthchecks"]) > appData["healthy_threshold"]:
-        appData["healthchecks"].pop(0)
+    # keep the last healthcheck times
+    appData.lastcheck = datetime.datetime.now()
+    appData.healthchecks.append((appData.lastcheck, statusCode))
+    if len(appData.healthchecks) > appData.healthy_threshold:
+        appData.healthchecks.pop(0)
 
     # if in unhealthy state wait till it meets the requirements for healthy again
-    healthy = appData["healthy"]
-    unhealthy = appData["unhealthy"]
     if statusCode == status.HTTP_200_OK:
-        healthy += 1 if healthy < appData["healthy_threshold"] else 0
-        if healthy >= appData["healthy_threshold"]:
-            appData["lasthealthy"] = appData["lastcheck"]
+        appData.healthy += 1 if appData.healthy < appData.healthy_threshold else 0
+        if appData.healthy >= appData.healthy_threshold:
+            appData.lasthealthy = appData.lastcheck
             # reset the unhealthy counter if we meet the requirements for healthy
-            unhealthy = 0
+            appData.unhealthy = 0
     else:
-        unhealthy += 1 if unhealthy < appData["unhealthy_threshold"] else 0
-        if unhealthy >= appData["unhealthy_threshold"]:
+        # healthcheck was not successful
+        appData.unhealthy += 1 if appData.unhealthy < appData.unhealthy_threshold else 0
+        if appData.unhealthy >= appData.unhealthy_threshold:
             # reset the healthy counter if we meet the requirements for unhealthy
-            healthy = 0
-            if datetime.datetime.now() - appData["lastcheck"] > datetime.timedelta(days=1):
-                # we pause any jobs that are reporting unhealthy for over a day
-                sched.pause_job(appname)
-                if appData["emailAddr"]:
-                    sendEmail(appData["emailAddr"], f'Last healthy check: {appData["lasthealthy"]}',
-                              f'Last healthy check: {appData["lasthealthy"]}',
-                              f"Monitoring for `{appname}` has been paused")
+            appData.healthy = 0
 
-    # store the health stats
-    appData["healthy"] = healthy
-    appData["unhealthy"] = unhealthy
+            # pause any jobs that are reporting unhealthy for over a day
+            if datetime.datetime.now() - appData.lastcheck > datetime.timedelta(days=1):
+                sched.pause_job(appname)
+                sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"Monitoring for `{appname}` has been paused")
 
     # update the status
-    if unhealthy == 0 and healthy >= appData["healthy_threshold"]:
-        if appData["health"] != "Healthy":
+    if appData.unhealthy == 0 and appData.healthy >= appData.healthy_threshold:
+        if appData.health != HEALTHY:
             logging.info(f"`{appname}` is back to healthy")
-            if appData["emailAddr"]:
-                sendEmail(appData["emailAddr"], "", "", f"`{appname}` is back to healthy")
-        appData["health"] = "Healthy"
-    elif healthy == 0 and unhealthy >= appData["unhealthy_threshold"]:
-        if appData["health"] != "Unhealthy":
+            sendEmail(appData.emailAddr, "", "", f"`{appname}` is back to healthy")
+        appData.health = HEALTHY
+    elif appData.healthy == 0 and appData.unhealthy >= appData.unhealthy_threshold:
+        if appData.health != UNHEALTHY:
             logging.error(f"`{appname}` is unhealthy")
-            if appData["emailAddr"]:
-                sendEmail(
-                    appData["emailAddr"],
-                    f'Last healthy check: {appData["lasthealthy"]}',
-                    f'Last healthy check: {appData["lasthealthy"]}',
-                    f"`{appname}` is unhealthy"
-                )
-        appData["health"] = "Unhealthy"
-    elif appData["unhealthy_threshold"] > 2 and unhealthy >= 2:
-        if appData["health"] != "warn":
-            logging.warning(f"`{appname}` is degraded")
-            if appData["emailAddr"]:
-                sendEmail(appData["emailAddr"], "", "", f"`{appname}` is degraded")
-        appData["health"] = "warn"
+            sendEmail( appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"`{appname}` is unhealthy")
+        appData.health = UNHEALTHY
+    elif appData.unhealthy_threshold > 2 and appData.unhealthy >= 2:
+        if appData.health != WARN:
+            logging.warning(f"`{appname}` health is degraded")
+            sendEmail(appData.emailAddr, '', '', f"`{appname}` is degraded")
+        appData.health = WARN
     else:
-        appData["health"] = "Unknown"
+        appData.health = "Unknown"
 
 
 @app.route("/healthcheck/stopmonitoring", methods=["GET"])
@@ -366,7 +371,6 @@ if __name__ == "__main__":
     logging.info("running restapi server press Ctrl+C to exit.")
     try:
         logging.getLogger("waitress").setLevel(logging.ERROR)
-        app = flask.Flask(__name__)
         if DEBUG:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY

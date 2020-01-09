@@ -63,7 +63,7 @@ class HealthCheckResponse:
         self.httpcode = httpcode
         return self
 
-    def version(self, value):
+    def version(self, value: str):
         """
         version: (optional) public version of the service.
 
@@ -89,43 +89,43 @@ class HealthCheckResponse:
         self.custom("output", value)
         return self
 
-    def releaseID(self, relid="1.0.0"):
+    def releaseID(self, relid: str = "1.0.0"):
         """Release ID of this version"""
         self.custom("releaseID", relid)
         return self
 
-    def serviceID(self, servid="1.0.0"):
+    def serviceID(self, servid: str = "1.0.0"):
         """Release ID of this version"""
         self.custom("serviceID", servid)
         return self
 
-    def description(self, app=""):
+    def description(self, app: str = ""):
         """Description of this service"""
         self.custom("description", f"health of {app} service")
         return self
 
-    def notes(self, note=""):
+    def notes(self, note: str=""):
         """Notes related to this health check"""
         self.custom("notes", note)
         return self
 
-    def details(self, details=""):
+    def details(self, details: str=""):
         """Detail notes"""
         self.custom("details", details)
         return self
 
-    def custom(self, key, value):
+    def custom(self, key: str, value: str):
         """Custom key:value pairs"""
         self.responseDict[key] = value
         return self
 
     # Need to add more formatting for this
     # https://tools.ietf.org/html/draft-inadarei-api-health-check-03#section-4
-    def checks(self, key, value):
+    def checks(self, key: str, value: str):
         self.responseDict[key] = value
         return self
 
-    def links(self, key, value):
+    def links(self, key: str, value: str):
         self.responseDict[key] = value
         return self
 
@@ -164,7 +164,7 @@ class HealthCheckServer:
         else:
             return status.HTTP_200_OK
 
-    def post(self, endpoint, formDict):
+    def post(self, endpoint: str, formDict):
         if self.healthCheckUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
@@ -180,7 +180,7 @@ class HealthCheckServer:
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def get(self, endpoint, paramsDict):
+    def get(self, endpoint: str, paramsDict):
         if self.healthCheckUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
@@ -196,7 +196,8 @@ class HealthCheckServer:
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def monitor(self, app, url, emailAddr="", timeout=5, interval=30, unhealthy=2, healthy=10):
+    def monitor(self, app: str, url: str, emailAddr: str ="", timeout: int =5, interval: int = 30, unhealthy: int = 2,
+                healthy: int = 10):
         params = {
             "appname": app,
             "url": url,
@@ -213,14 +214,14 @@ class HealthCheckServer:
         }
         return self.post("monitor", formDict=params)
 
-    def stop(self, appname):
+    def stop(self, appname: str):
         return self.get("stop", paramsDict={"appname": appname})
 
-    def pause(self, appname):
+    def pause(self, appname: str):
         return self.get("pause", paramsDict={"appname": appname})
 
-    def resume(self, appname):
+    def resume(self, appname: str):
         return self.get("resume", paramsDict={"appname": appname})
 
-    def info(self, appname):
+    def info(self, appname: str):
         return self.get("info", paramsDict={"appname": appname})

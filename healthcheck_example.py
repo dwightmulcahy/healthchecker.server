@@ -41,6 +41,11 @@ def health():
     return res
 
 
+@app.route("/")
+def hello():
+    return f'{APP_NAME}'
+
+
 if __name__ == "__main__":
     info(f"Started {APP_NAME}")
 

@@ -320,12 +320,13 @@ def info():
 
 @app.route("/healthcheck/status")
 def statusPage():
+    # TODO: make this an interactive page
     # show a webpage with all the apps monitored and last status
     return make_response(jsonify(appsMonitored), status.HTTP_501_NOT_IMPLEMENTED)
 
 
 def registerService():
-    # register the service with zeroconf
+    # register the service with zeroconf so it can be found
     zeroConf = Zeroconf()
     addresses = [socket.inet_aton(getMyIpAddr())]
     if socket.has_ipv6:
@@ -353,6 +354,7 @@ if __name__ == "__main__":
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
     # get environment set variables
+    # TODO: remove this TOKEN and put it into a config file that is in .gitignore
     GMAIL_API_TOKEN = os.environ.get("GMAIL_API_TOKEN", "quagklyvvjqknoxp")
     HTTP_PORT = int(os.environ.get("PORT", findFreePort()))
     BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "0.0.0.0")

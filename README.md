@@ -1,4 +1,55 @@
-# Health check parameters
+# Healthcheck Server
+Running this microservice will provide a findable service (via ZeroConf) that will all other programs
+and hardware to register for periodic healthchecks.  Email's can be sent when the registered 
+service degrades or goes unhealth as defined by the registered parameters.
+
+# Healthcheck Example
+Here is an example of a minimal healthcheck client using Flask.
+
+```
+import flask
+from flask_api.status import is_success
+
+from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckServer
+from reqUtils import getMyIpAddr
+
+# start flask using the appname
+app = flask.Flask(__name__)
+
+# set the app name to use
+APP_NAME = "Sample HealthCheck App"
+
+# health check endpoint
+@app.route("/health")
+def health():
+    # build the response to send back
+    return HealthCheckResponse().description(APP_NAME).status(HealthStatus.PASS).build()
+
+
+if __name__ == "__main__":
+    BIND_ADDRESS = "0.0.0.0"
+    PORT = 9090
+
+    # register with the HealthCheck Server that we want to be monitored
+    healthCheckServer = HealthCheckServer()
+    hcs = healthCheckServer.monitor(
+        app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}", emailAddr="dwightmulcahy@gmail.com",
+        interval=10, unhealthy=2, healthy=4
+    )
+    if not is_success(hcs):
+        print(f"Health Check microservice returned a status of {hcs} ({responses[hcs]})")
+    else:
+        print(f"Registered with Health Check microservice at {healthCheckServer.url()}")
+
+    try:
+        app.run(host=BIND_ADDRESS, port=PORT, debug=False)
+    except KeyboardInterrupt:
+        # remove ourselves from being monitored
+        healthCheckServer.stop(APP_NAME)
+
+```
+
+## Health check parameters
 
 **Ping Protocol**
 
@@ -28,7 +79,7 @@ The destination for the HTTP or HTTPS request.
 
 An HTTP or HTTPS GET request is issued to the instance on the ping port and the ping path. If the load balancer receives any response other than "200 OK" within the response timeout period, the instance is considered unhealthy. If the response includes a body, your application must either set the Content-Length header to a value greater than or equal to zero, or specify Transfer-Encoding with a value set to 'chunked'.
 
-Default: /index.html
+Default: /healthcheck
 
 **Response Timeout**
 
@@ -43,7 +94,6 @@ Default: 5
 The amount of time between health checks of an individual instance, in seconds.
 
 Valid values: 5 to 300
-
 Default: 30
 
 **Unhealthy Threshold**

@@ -37,7 +37,7 @@ if __name__ == "__main__":
         interval=10, unhealthy=2, healthy=4
     )
     if not is_success(hcs):
-        print(f"Health Check microservice returned a status of {hcs} ({responses[hcs]})")
+        print(f"HealthCheck microservice returned a status of {hcs}")
     else:
         print(f"Registered with Health Check microservice at {healthCheckServer.url()}")
 

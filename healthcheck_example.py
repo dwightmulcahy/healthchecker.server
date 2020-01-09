@@ -49,16 +49,18 @@ def hello():
 if __name__ == "__main__":
     info(f"Started {APP_NAME}")
 
-    # register with the HealthCheck Server that we want to be monitored
+    # get the healthcheck server
     healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
-
     info(f"HealthCheck_server URL: {healthCheckServer.url()}")
+
+    # register with the HealthCheck Server that we want to be monitored
     hcs = healthCheckServer.monitor(emailAddr="dwightmulcahy@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
-        warning(f"Health Check microservice returned a status of {hcs} ({responses[hcs]})")
+        warning(f"HealthCheck microservice returned a status of {hcs} ({responses[hcs]})")
     else:
-        info(f"Registered with Health Check microservice at {healthCheckServer.url()}")
+        info(f"Registered with HealthCheck microservice at {healthCheckServer.url()}")
 
+    # run the web server
     info("Press Ctrl+C to exit.")
     try:
         app.run(host=BIND_ADDRESS, port=PORT, debug=False)

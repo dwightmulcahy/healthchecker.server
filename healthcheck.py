@@ -203,11 +203,10 @@ class HealthCheckServer:
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2,
-                healthy: int = 10):
+    def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):
         params = {
             "appname": self.appname,
-            "url": self.url,
+            "url": self.monitorUrl,
             #   email addr to send email when unhealthy
             "email": emailAddr,
             #   Response Timeout: 5 sec (2-60sec)

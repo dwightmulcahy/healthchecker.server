@@ -134,6 +134,8 @@ def monitorRequest():
     # - endpoint to register an app to monitor
     global appsMonitored
 
+    # TODO: verify that the URL is correctly formatted
+
     appname = request.form["appname"]
     url = request.form["url"]
     if appname is None or url is None:

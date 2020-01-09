@@ -139,12 +139,16 @@ class HealthCheckResponse:
         }
         return res
 
-
 class HealthCheckServer:
     TYPE = "_http._tcp.local."
     SERVICE_NAME = "_healthcheck"
+    appname = ''
+    monitorUrl = ''
+    healthCheckUrl = ''
 
-    def __init__(self):
+    def __init__(self, app: str, url: str):
+        self.appname = app
+        self.monitorUrl = url
         # get the HealthCheck Server info from zeroconf
         r = Zeroconf()
         hcInfo = r.get_service_info(HealthCheckServer.TYPE, f"{HealthCheckServer.SERVICE_NAME}.{HealthCheckServer.TYPE}")
@@ -154,6 +158,9 @@ class HealthCheckServer:
         else:
             self.healthCheckUrl = "ServiceNotFound"
         r.close()
+
+    def __del__(self):
+        self.stop()
 
     def url(self):
         return self.healthCheckUrl
@@ -196,11 +203,11 @@ class HealthCheckServer:
         except:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def monitor(self, app: str, url: str, emailAddr: str ="", timeout: int =5, interval: int = 30, unhealthy: int = 2,
+    def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2,
                 healthy: int = 10):
         params = {
-            "appname": app,
-            "url": url,
+            "appname": self.appname,
+            "url": self.url,
             #   email addr to send email when unhealthy
             "email": emailAddr,
             #   Response Timeout: 5 sec (2-60sec)
@@ -214,14 +221,14 @@ class HealthCheckServer:
         }
         return self.post("monitor", formDict=params)
 
-    def stop(self, appname: str):
-        return self.get("stop", paramsDict={"appname": appname})
+    def stop(self):
+        return self.get("stop", paramsDict={"appname": self.appname})
 
-    def pause(self, appname: str):
-        return self.get("pause", paramsDict={"appname": appname})
+    def pause(self):
+        return self.get("pause", paramsDict={"appname": self.appname})
 
-    def resume(self, appname: str):
-        return self.get("resume", paramsDict={"appname": appname})
+    def resume(self):
+        return self.get("resume", paramsDict={"appname": self.appname})
 
-    def info(self, appname: str):
-        return self.get("info", paramsDict={"appname": appname})
+    def info(self):
+        return self.get("info", paramsDict={"appname": self.appname})

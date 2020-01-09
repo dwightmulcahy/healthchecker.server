@@ -50,13 +50,10 @@ if __name__ == "__main__":
     info(f"Started {APP_NAME}")
 
     # register with the HealthCheck Server that we want to be monitored
-    healthCheckServer = HealthCheckServer()
+    healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
 
     info(f"HealthCheck_server URL: {healthCheckServer.url()}")
-    hcs = healthCheckServer.monitor(
-        app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}", emailAddr="dwightmulcahy@gmail.com",
-        interval=10, unhealthy=2, healthy=4
-    )
+    hcs = healthCheckServer.monitor(emailAddr="dwightmulcahy@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         warning(f"Health Check microservice returned a status of {hcs} ({responses[hcs]})")
     else:
@@ -68,4 +65,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         info("Shutting down...")
         # remove ourselves from being monitored
-        healthCheckServer.stop(APP_NAME)
+        healthCheckServer.stop()

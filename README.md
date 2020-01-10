@@ -4,7 +4,7 @@ and hardware to register for periodic healthchecks.  Email's can be sent when th
 service degrades or goes unhealth as defined by the registered parameters.
 
 # Healthcheck Example
-Here is an example of a minimal healthcheck client using Flask.
+Here is an example of a Flask client using HealthCheck.
 
 ```
 import flask
@@ -31,11 +31,8 @@ if __name__ == "__main__":
     PORT = 9090
 
     # register with the HealthCheck Server that we want to be monitored
-    healthCheckServer = HealthCheckServer()
-    hcs = healthCheckServer.monitor(
-        app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}", emailAddr="dwightmulcahy@gmail.com",
-        interval=10, unhealthy=2, healthy=4
-    )
+    healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
+    hcs = healthCheckServer.monitor(emailAddr="dwightmulcahy@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         print(f"HealthCheck microservice returned a status of {hcs}")
     else:

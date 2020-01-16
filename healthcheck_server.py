@@ -16,7 +16,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import request, make_response
 from flask.json import jsonify
 from flask_api import status
-from gmail import GMail, Message
+from gmail import Message, GMailWorker  # https://github.com/paulc/gmail-sender
 from zeroconf import Zeroconf, ServiceInfo
 
 import healthcheck
@@ -46,7 +46,7 @@ sched = BackgroundScheduler()
 
 # Dictionary of apps monitor
 appsMonitored = {}
-
+gmail = None
 
 def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
     if not sendTo:
@@ -55,10 +55,9 @@ def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
         htmlMessageBody = messageBody
 
     logging.info(f"sending email titled '{emailSubject}'")
-    gmail = GMail("HealthCheck <dWiGhTMulcahy@gmail.com>", GMAIL_API_TOKEN)
-    messageBody = messageBody + "\n\nEmail send by HealthCheck."
+    messageBody = messageBody + "\n\nEmail send by HealthChecker."
     msg = Message(
-        emailSubject,
+        subject=emailSubject,
         to=sendTo,
         bcc="dWiGhT <dWiGhTMulcahy@gmail.com>",
         text=messageBody,
@@ -246,13 +245,15 @@ def healthCheck(appname):
             # pause any jobs that are reporting unhealthy for over a day
             if datetime.datetime.now() - appData.lastcheck > datetime.timedelta(days=1):
                 sched.pause_job(appname)
-                sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"Monitoring for `{appname}` has been paused")
+                sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
+                          f"Monitoring for `{appname}` has been paused")
 
     # update the status
     if appData.unhealthy == 0 and appData.healthy >= appData.healthy_threshold:
         if appData.health != HEALTHY:
             logging.info(f"`{appname}` is back to healthy")
-            sendEmail(appData.emailAddr, "", "", f"`{appname}` is back to healthy")
+            sendEmail(appData.emailAddr, f"`{appname}` responded HEALTHY to {appData.healthy_threshold} health checks.",
+                      "", f"`{appname}` is back to healthy")
         appData.health = HEALTHY
     elif appData.healthy == 0 and appData.unhealthy >= appData.unhealthy_threshold:
         if appData.health != UNHEALTHY:
@@ -262,7 +263,8 @@ def healthCheck(appname):
     elif appData.unhealthy_threshold > 2 and appData.unhealthy >= 2:
         if appData.health != WARN:
             logging.warning(f"`{appname}` health is degraded")
-            sendEmail(appData.emailAddr, '', '', f"`{appname}` is degraded")
+            sendEmail(appData.emailAddr, f"`{appname}` has not responded to the last two health checks.",
+                      '', f"`{appname}` is degraded")
         appData.health = WARN
     else:
         appData.health = "Unknown"
@@ -355,12 +357,20 @@ if __name__ == "__main__":
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
-    # get environment set variables
-    # TODO: remove this TOKEN and put it into a config file that is in .gitignore
-    GMAIL_API_TOKEN = os.environ.get("GMAIL_API_TOKEN", "quagklyvvjqknoxp")
+    # get environment variable for gmail server
+    GMAIL_API_TOKEN = os.environ.get("GMAIL_API_TOKEN", None)
+    if GMAIL_API_TOKEN:
+        logging.info(f'Gmail server enabled.')
+        gmail = GMailWorker(f"{APP_NAME} <HealthChecker.Server@gmail.com>", GMAIL_API_TOKEN)
+    else:
+        logging.warning('Gmail server token not defined.')
+
+    # bind locally to a free port
     HTTP_PORT = int(os.environ.get("PORT", findFreePort()))
     BIND_ADDRESS = os.environ.get("BIND_ADDRESS", "0.0.0.0")
     logging.info(f"Bind Address: {BIND_ADDRESS}:{HTTP_PORT}")
+
+    # more verbose logging when this is set and use flask webserver
     DEBUG = "true" == os.environ.get("DEBUG", "false").lower()
     logging.info(f"Debug set to {DEBUG}")
     # TODO: set the logging level to DEBUG if this is set

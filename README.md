@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/healthchecker.jpg?raw=true" height="150" width="150"/>
+</p>
+
 # Healthcheck Server
 Running this microservice will provide a findable service (via ZeroConf) that will all other programs
 and hardware to register for periodic healthchecks.  Email's can be sent when the registered 
@@ -32,7 +36,7 @@ if __name__ == "__main__":
 
     # register with the HealthCheck Server that we want to be monitored
     healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
-    hcs = healthCheckServer.monitor(emailAddr="dwightmulcahy@gmail.com", interval=10, unhealthy=2, healthy=4)
+    hcs = healthCheckServer.monitor(emailAddr="myEmailAddr@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         print(f"HealthCheck microservice returned a status of {hcs}")
     else:

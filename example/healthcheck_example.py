@@ -54,7 +54,7 @@ if __name__ == "__main__":
     info(f"HealthCheck_server URL: {healthCheckServer.url()}")
 
     # register with the HealthCheck Server that we want to be monitored
-    hcs = healthCheckServer.monitor(emailAddr="dwightmulcahy@gmail.com", interval=10, unhealthy=2, healthy=4)
+    hcs = healthCheckServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         warning(f"HealthCheck microservice returned a status of {hcs} ({responses[hcs]})")
     else:

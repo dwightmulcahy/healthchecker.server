@@ -134,6 +134,7 @@ def monitorRequest():
     global appsMonitored
 
     # TODO: verify that the URL is correctly formatted
+    # https://docs.python.org/3/library/urllib.parse.html#module-urllib.parse
 
     appname = request.form["appname"]
     url = request.form["url"]

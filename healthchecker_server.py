@@ -1,4 +1,5 @@
 import sys
+
 if not sys.version_info > (3, 7):
     print('Python3.7 is required to run this')
     sys.exit(-1)
@@ -18,6 +19,7 @@ from flask.json import jsonify
 from flask_api import status
 from gmail import Message, GMailWorker  # https://github.com/paulc/gmail-sender
 from zeroconf import Zeroconf, ServiceInfo
+from validators import url, email, between, ip_address
 
 import healthcheck
 from reqUtils import findFreePort, getMyIpAddr
@@ -57,7 +59,6 @@ def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject:
     msg = Message(
         subject=emailSubject,
         to=sendTo,
-        bcc="dWiGhT <dWiGhTMulcahy@gmail.com>",
         text=messageBody,
         html=htmlMessageBody,
         reply_to="do@notreply.com",
@@ -135,8 +136,8 @@ def monitorRequest():
     # https://docs.python.org/3/library/urllib.parse.html#module-urllib.parse
 
     appname = request.form["appname"]
-    url = request.form["url"]
-    if appname is None or url is None:
+    monitorUrl = request.form["url"]
+    if appname is None or monitorUrl is None:
         logging.error(f"`{appname}` tried to register without the minimum parameters.")
         return make_response(
             f"Invalid parameters for app `{appname}`.\nMinimal request should have `appname` and `url` defined.",
@@ -156,8 +157,13 @@ def monitorRequest():
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
     appname = request.form["appname"]
-    url = request.form["url"]
+    monitorUrl = request.form["url"]
+    if not url(monitorUrl) and not ip_address.ipv4(monitorUrl) and not ip_address.ipv6(monitorUrl):
+        return make_response(f"`{monitorUrl}` is not a valid url", status.HTTP_400_BAD_REQUEST)
+
     emailAddr = request.form["email"]
+    if not email(emailAddr):
+        return make_response(f"`{emailAddr}` is not a valid email", status.HTTP_400_BAD_REQUEST)
 
     #   Response Timeout: 5 sec (2-60sec)
     timeout = int(request.form["timeout"])
@@ -170,29 +176,29 @@ def monitorRequest():
 
     # make sure the parameters are sane
     if (
-        timeout not in range(2, 61)
-        or interval not in range(5, 301)
-        or healthy_threshold not in range(2, 11)
-        or unhealthy_threshold not in range(2, 11)
+        between(timeout, min=2, max=60)
+        and between(interval, min=5, max=300)
+        and between(healthy_threshold, min=2, max=10)
+        and between(unhealthy_threshold, min=2, max=10)
     ):
-        # return error processing
-        logging.error(f"`{appname}` tried to register with the invalid parameters.")
-        return make_response(
-            f"One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.",
-            status.HTTP_406_NOT_ACCEPTABLE,
-        )
-    else:
         # store off the parameters for the job
-        appsMonitored[appname] = AppData("http://" + url, emailAddr, timeout, interval, unhealthy_threshold, healthy_threshold)
+        appsMonitored[appname] = AppData(monitorUrl, emailAddr, timeout, interval, unhealthy_threshold, healthy_threshold)
 
         # create a job with the above parameters
-        logging.info(f"Scheduling health check job for `{appname}` to {url} at {interval} seconds intervals.")
+        logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
         sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
 
         # return request created
         return make_response(
             f"App `{appname}` is scheduled for health check monitoring.",
             status.HTTP_201_CREATED,
+        )
+    else:
+        # return error processing
+        logging.error(f"`{appname}` tried to register with the invalid parameters.")
+        return make_response(
+            f"One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.",
+            status.HTTP_406_NOT_ACCEPTABLE,
         )
 
 

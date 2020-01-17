@@ -50,7 +50,7 @@ if __name__ == "__main__":
     info(f"Started {APP_NAME}")
 
     # get the healthchecker server
-    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
+    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"http://{getMyIpAddr()}:{PORT}")
     info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
 
     # register with the HealthChecker Server that we want to be monitored

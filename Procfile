@@ -1,1 +1,1 @@
-web: python3 healthcheck_server.py
+web: python3 healthchecker_server.py

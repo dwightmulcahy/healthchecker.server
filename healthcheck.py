@@ -139,46 +139,46 @@ class HealthCheckResponse:
         }
         return res
 
-class HealthCheckServer:
+class HealthCheckerServer:
     TYPE = "_http._tcp.local."
-    SERVICE_NAME = "_healthcheck"
+    SERVICE_NAME = "_healthchecker"
     appname = ''
     monitorUrl = ''
-    healthCheckUrl = ''
+    healthCheckerUrl = ''
 
     def __init__(self, app: str, url: str):
         self.appname = app
         self.monitorUrl = url
-        # get the HealthCheck Server info from zeroconf
+        # get the HealthChecker Server info from zeroconf
         r = Zeroconf()
-        hcInfo = r.get_service_info(HealthCheckServer.TYPE, f"{HealthCheckServer.SERVICE_NAME}.{HealthCheckServer.TYPE}")
+        hcInfo = r.get_service_info(HealthCheckerServer.TYPE, f"{HealthCheckerServer.SERVICE_NAME}.{HealthCheckerServer.TYPE}")
         if hcInfo:
             # hcInfo.parsed_addresses()[0] is the IPV4 addr
-            self.healthCheckUrl = f"http://{hcInfo.parsed_addresses()[0]}:{hcInfo.port}/healthcheck/"
+            self.healthCheckerUrl = f"http://{hcInfo.parsed_addresses()[0]}:{hcInfo.port}/healthchecker/"
         else:
-            self.healthCheckUrl = "ServiceNotFound"
+            self.healthCheckerUrl = "ServiceNotFound"
         r.close()
 
     def __del__(self):
         self.stop()
 
     def url(self):
-        return self.healthCheckUrl
+        return self.healthCheckerUrl
 
     def status(self):
-        if self.healthCheckUrl == "ServiceNotFound":
+        if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         else:
             return status.HTTP_200_OK
 
     def post(self, endpoint: str, formDict):
-        if self.healthCheckUrl == "ServiceNotFound":
+        if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
             return (
                 requestsRetrySession(retries=1)
                 .post(
-                    self.healthCheckUrl + endpoint,
+                    self.healthCheckerUrl + endpoint,
                     data=formDict,
                     headers={"Cache-Control": "no-cache"},
                 )
@@ -188,13 +188,13 @@ class HealthCheckServer:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
-        if self.healthCheckUrl == "ServiceNotFound":
+        if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
             return (
                 requestsRetrySession(retries=1)
                 .get(
-                    self.healthCheckUrl + endpoint,
+                    self.healthCheckerUrl + endpoint,
                     params=paramsDict,
                     headers={"Cache-Control": "no-cache"},
                 )

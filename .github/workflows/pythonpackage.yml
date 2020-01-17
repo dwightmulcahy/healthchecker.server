@@ -10,11 +10,11 @@ jobs:
       steps:
       - uses: seferov/pr-lint-action@master
         with:
+          # Conventional Commits format
           title-regex: '^(revert: )?((feat|fix|docs|style|refactor|perf|test|chore|improvement|build|ci|wip)(\(.+\))?: )*(.*$)'
           title-regex-flags: 'g'
   
     build:
-
       runs-on: ubuntu-latest
       strategy:
         max-parallel: 4

@@ -2,26 +2,26 @@
   <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/healthchecker.jpg?raw=true" height="150" width="150"/>
 </p>
 
-# Healthcheck Server
-Running this microservice will provide a findable service (via ZeroConf) that will all other programs
+# Healthchecker.Server
+Running this microservice will provide a findable service (via ZeroConf) that will allow programs
 and hardware to register for periodic healthchecks.  Email's can be sent when the registered 
 service degrades or goes unhealth as defined by the registered parameters.
 
-# Healthcheck Example
-Here is an example of a Flask client using HealthCheck.
+# Example
+Here is an example of a Flask client using the HealthChecker.Server service.
 
 ```
 import flask
 from flask_api.status import is_success
 
-from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckServer
+from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
 from reqUtils import getMyIpAddr
 
 # start flask using the appname
 app = flask.Flask(__name__)
 
 # set the app name to use
-APP_NAME = "Sample HealthCheck App"
+APP_NAME = "Sample HealthChecker App"
 
 # health check endpoint
 @app.route("/health")
@@ -34,19 +34,19 @@ if __name__ == "__main__":
     BIND_ADDRESS = "0.0.0.0"
     PORT = 9090
 
-    # register with the HealthCheck Server that we want to be monitored
-    healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
-    hcs = healthCheckServer.monitor(emailAddr="myEmailAddr@gmail.com", interval=10, unhealthy=2, healthy=4)
+    # register with HealthChecker.Server that we want to be monitored
+    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
+    hcs = healthCheckerServer.monitor(emailAddr="myEmailAddr@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
-        print(f"HealthCheck microservice returned a status of {hcs}")
+        print(f"HealthChecker microservice returned a status of {hcs}")
     else:
-        print(f"Registered with Health Check microservice at {healthCheckServer.url()}")
+        print(f"Registered with HealthChecker microservice at {healthCheckerServer.url()}")
 
     try:
         app.run(host=BIND_ADDRESS, port=PORT, debug=False)
     except KeyboardInterrupt:
         # remove ourselves from being monitored
-        healthCheckServer.stop(APP_NAME)
+        healthCheckerServer.stop()
 
 ```
 

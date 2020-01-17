@@ -23,8 +23,6 @@ import healthcheck
 from reqUtils import findFreePort, getMyIpAddr
 from uptime import UpTime
 
-# https://github.com/jazzband/prettytable
-
 # logging format
 logging.basicConfig(
     format="%(asctime)s-%(levelname)s: %(message)s",
@@ -34,7 +32,7 @@ logging.basicConfig(
 
 app = flask.Flask(__name__)
 
-APP_NAME = "HealthCheck microservice"
+APP_NAME = "HealthChecker microservice"
 uptime = UpTime()
 
 # create background scheduler used for healthchecks
@@ -48,14 +46,14 @@ sched = BackgroundScheduler()
 appsMonitored = {}
 gmail = None
 
-def sendEmail(sendTo, messageBody, htmlMessageBody, emailSubject):
+def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject: str):
     if not sendTo:
         return
     if not htmlMessageBody:
         htmlMessageBody = messageBody
 
     logging.info(f"sending email titled '{emailSubject}'")
-    messageBody = messageBody + "\n\nEmail send by HealthChecker."
+    messageBody = messageBody + "\n\nEmail send by HealthChecker.Server"
     msg = Message(
         subject=emailSubject,
         to=sendTo,
@@ -128,7 +126,7 @@ class AppData:
     healthy: int = 0
 
 
-@app.route("/healthcheck/monitor", methods=["POST"])
+@app.route("/healthchecker/monitor", methods=["POST"])
 def monitorRequest():
     # - endpoint to register an app to monitor
     global appsMonitored
@@ -199,7 +197,7 @@ def monitorRequest():
 
 
 # This is the scheduled job that checks the status of the app
-def healthCheck(appname):
+def healthCheck(appname: str):
     HEALTHY = "Healthy"
     WARN = "Warn"
     UNHEALTHY = "Unhealthy"
@@ -271,7 +269,7 @@ def healthCheck(appname):
         appData.health = "Unknown"
 
 
-@app.route("/healthcheck/stopmonitoring", methods=["GET"])
+@app.route("/healthchecker/stopmonitoring", methods=["GET"])
 def stopmonitoring():
     # - endpoint to deregister app “stopmonitoring?<appName>”
     appname = request.args.get("appname")
@@ -286,7 +284,7 @@ def stopmonitoring():
         )
 
 
-@app.route("/healthcheck/pause", methods=["GET"])
+@app.route("/healthchecker/pause", methods=["GET"])
 def pause():
     # - endpoint to pause monitoring “pause?<appName>”
     appname = request.args.get("appname")
@@ -300,7 +298,7 @@ def pause():
         )
 
 
-@app.route("/healthcheck/resume", methods=["GET"])
+@app.route("/healthchecker/resume", methods=["GET"])
 def resume():
     # - endpoint to resume monitoring “resume?<appName>"
     appname = request.args.get("appname")
@@ -308,13 +306,10 @@ def resume():
         sched.resume_job(appname)
         return make_response("OK", status.HTTP_200_OK)
     else:
-        return make_response(
-            f"App `{appname}` is not health check monitored.",
-            status.HTTP_400_BAD_REQUEST,
-        )
+        return make_response(f"App `{appname}` is not health check monitored.", status.HTTP_400_BAD_REQUEST)
 
 
-@app.route("/healthcheck/info")
+@app.route("/healthchecker/info")
 def info():
     # show a webpage with all the apps monitored and last status
     appname = request.args.get("appname", None)
@@ -323,7 +318,7 @@ def info():
     return make_response(jsonify(appsMonitored[appname]), status.HTTP_200_OK)
 
 
-@app.route("/healthcheck/status")
+@app.route("/healthchecker/status")
 def statusPage():
     # TODO: make this an interactive page
     # show a webpage with all the apps monitored and last status
@@ -336,11 +331,11 @@ def registerService():
     addresses = [socket.inet_aton(getMyIpAddr())]
     if socket.has_ipv6:
         addresses.append(socket.inet_pton(socket.AF_INET6, "::1"))
-    logging.info(f"registering service _healthcheck._http._tcp.local. at {getMyIpAddr()}:{HTTP_PORT}")
+    logging.info(f"registering service _healthchecker._http._tcp.local. at {getMyIpAddr()}:{HTTP_PORT}")
     zeroConf.register_service(
         ServiceInfo(
             "_http._tcp.local.",
-            "_healthcheck._http._tcp.local.",
+            "_healthchecker._http._tcp.local.",
             addresses=addresses,
             port=HTTP_PORT,
             properties={"version": "0.9Beta", "desc": "health check micro-service"},

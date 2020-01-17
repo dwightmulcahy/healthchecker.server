@@ -9,7 +9,7 @@ from logging import basicConfig, warning, INFO, info
 import flask
 from flask_api.status import is_success
 
-from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckServer
+from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
 from reqUtils import getMyIpAddr
 from uptime import UpTime
 
@@ -24,7 +24,7 @@ basicConfig(
 app = flask.Flask(__name__)
 
 # set the app name to use
-APP_NAME = "Sample HealthCheck App"
+APP_NAME = "Sample HealthChecker.Server App"
 uptime = UpTime()
 
 BIND_ADDRESS = "0.0.0.0"
@@ -49,16 +49,16 @@ def hello():
 if __name__ == "__main__":
     info(f"Started {APP_NAME}")
 
-    # get the healthcheck server
-    healthCheckServer = HealthCheckServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
-    info(f"HealthCheck_server URL: {healthCheckServer.url()}")
+    # get the healthchecker server
+    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
+    info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
 
-    # register with the HealthCheck Server that we want to be monitored
-    hcs = healthCheckServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
+    # register with the HealthChecker Server that we want to be monitored
+    hcs = healthCheckerServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
-        warning(f"HealthCheck microservice returned a status of {hcs} ({responses[hcs]})")
+        warning(f"HealthChecker microservice returned a status of {hcs} ({responses[hcs]})")
     else:
-        info(f"Registered with HealthCheck microservice at {healthCheckServer.url()}")
+        info(f"Registered with HealthChecker microservice at {healthCheckerServer.url()}")
 
     # run the web server
     info("Press Ctrl+C to exit.")
@@ -67,4 +67,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         info("Shutting down...")
         # remove ourselves from being monitored
-        healthCheckServer.stop()
+        healthCheckerServer.stop()

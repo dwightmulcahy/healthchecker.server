@@ -12,14 +12,14 @@ from dataclasses import dataclass, field
 from typing import List
 
 import flask
-import waitress
-from apscheduler.schedulers.background import BackgroundScheduler
+import waitress  # https://github.com/Pylons/waitress
+from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
 from flask import request, make_response
 from flask.json import jsonify
 from flask_api import status
 from gmail import Message, GMailWorker  # https://github.com/paulc/gmail-sender
-from zeroconf import Zeroconf, ServiceInfo
-from validators import url, email, between, ip_address
+from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python-zeroconf
+from validators import url, email, between, ip_address  # https://github.com/kvesteri/validators
 
 import healthcheck
 from reqUtils import findFreePort, getMyIpAddr
@@ -39,7 +39,7 @@ uptime = UpTime()
 
 # create background scheduler used for healthchecks
 logging.info("Starting scheduler.")
-sched = BackgroundScheduler()
+sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
 
 # TODO: look at adding a light db to this instead of a dict
 #  https://medium.com/@chetaniam/writing-a-simple-scheduling-service-with-apscheduler-dfbabc62e24a

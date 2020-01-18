@@ -165,6 +165,9 @@ class HealthCheckerServer:
     def url(self):
         return self.healthCheckerUrl
 
+    def isAvailable(self):
+        return "ServiceNotFound" != self.healthCheckerUrl
+
     def status(self):
         if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE

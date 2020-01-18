@@ -2,13 +2,78 @@
   <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/HealthChecker-Logo.png?raw=true" height="200"/>
 </p>
 
+# Why?
+In my household I have several different devices running.  My media center sometimes will hang
+or reboot leaving it is an unuseable state.  Sometimes powers goes out and devices don't reboot 
+correctly.  My raspberry pi cluster runs a bunch of rest api endpoints that I constantly am adding 
+"features" too (sometimes called `bugs`).  This microserve will email me when something happens 
+that will involve human interaction (me).
+
+# Installation
+_**THIS CURRENTLY ISN"T AVAILABLE YET!!!**_
+
+You can install `HealthCheck.Server` using pip:
+```
+pip install healthcheck.server
+```
+Currently it supports python versions 3.7+.
+
 # Healthchecker.Server
 Running this microservice will provide a findable service (via ZeroConf) that will allow programs
 and hardware to register for periodic healthchecks.  Email's can be sent when the registered 
-service degrades or goes unhealth as defined by the registered parameters.
+service degrades or goes unhealthy as defined by the registered parameters.
 
-# Example
-Here is an example of a Flask client using the HealthChecker.Server service.
+## Usage
+
+The following code will find and register an application for monitoring.  Emails will be sent when the status of the monitored 
+application changes.
+```python
+from healthcheck import HealthCheckerServer
+
+healthCheckerServer = HealthCheckerServer(app='MyApp', url=f'http://www.mywebpage.com')
+
+hcs = healthCheckerServer.monitor(emailAddr='myEmailAddress@gmail.com')
+if hcs != 200:
+    print(f'HealthChecker returned a status of {hcs}')
+else:
+    print(f'Registered with HealthChecker at {healthCheckerServer.url()}')
+```
+
+## HealthCheckerServer Class
+
+**Ping Path**
+The destination for the HTTP or HTTPS request.
+
+An HTTP or HTTPS GET request is issued to the instance on the ping port and the ping path. If the load balancer receives any response other than "200 OK" within the response timeout period, the instance is considered unhealthy. If the response includes a body, your application must either set the Content-Length header to a value greater than or equal to zero, or specify Transfer-Encoding with a value set to 'chunked'.
+Default: /healthcheck
+
+**Response Timeout**
+The amount of time to wait when receiving a response from the health check, in seconds.
+
+Valid values: 2 to 60
+Default: 5
+
+**HealthCheck Interval**
+The amount of time between health checks of an individual instance, in seconds.
+
+Valid values: 5 to 300
+Default: 30
+
+**Unhealthy Threshold**
+The number of consecutive failed health checks that must occur before declaring an EC2 instance unhealthy.
+
+Valid values: 2 to 10
+Default: 2
+
+**Healthy Threshold**
+The number of consecutive successful health checks that must occur before declaring an EC2 instance healthy.
+
+Valid values: 2 to 10
+Default: 10
+
+# Full Example
+Here is an example of a Flask client using the HealthChecker.Server service.  This example is located in the `example/` 
+directory.
 
 ```
 import flask

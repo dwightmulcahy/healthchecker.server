@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/healthchecker.jpg?raw=true" height="150" width="150"/>
+  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/HealthChecker-Logo.png?raw=true" height="200" width="200"/>
 </p>
 
 # Healthchecker.Server

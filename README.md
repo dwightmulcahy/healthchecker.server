@@ -35,7 +35,7 @@ if __name__ == "__main__":
     PORT = 9090
 
     # register with HealthChecker.Server that we want to be monitored
-    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"{getMyIpAddr()}:{PORT}")
+    healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"http://{getMyIpAddr()}:{PORT}")
     hcs = healthCheckerServer.monitor(emailAddr="myEmailAddr@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         print(f"HealthChecker microservice returned a status of {hcs}")

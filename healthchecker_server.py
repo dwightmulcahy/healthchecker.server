@@ -357,8 +357,8 @@ def registerService(bindAddr, port):
 @click.option('--verbose', '-v', is_flag=True)
 @click.option('--test', '-t', is_flag=True)
 @click.option('--debug', '-d', envvar="DEBUG", is_flag=True, default=False)
-@click.option('--gmail_token', '-gt', envvar="GMAIL_API_TOKEN", default=None)
-@click.option('--bind_addr', '-ba', envvar="BIND_ADDRESS", default=getMyIpAddr())
+@click.option('--gmail_token', '-gt', envvar="GMAIL_TOKEN", default=None)
+@click.option('--bind_addr', '-ba', envvar="BIND_ADDR", default=getMyIpAddr())
 @click.option('--port', '-p', envvar="PORT", default=findFreePort())
 @click_config_file.configuration_option(config_file_name=os.path.dirname(os.path.realpath(__file__))+'/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):

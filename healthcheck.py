@@ -13,7 +13,7 @@ from zeroconf import Zeroconf
 # HealthCheck RFC specification
 # https://tools.ietf.org/id/draft-inadarei-api-health-check-02.html#rfc.section.3
 # https://inadarei.github.io/rfc-healthcheck/
-from reqUtils import requestsRetrySession
+from iputils import requestsRetrySession
 
 
 class HealthStatus(Enum):

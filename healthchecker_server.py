@@ -24,7 +24,7 @@ import click
 import click_config_file
 
 import healthcheck
-from reqUtils import findFreePort, getMyIpAddr
+from iputils import findFreePort, getMyIpAddr
 from uptime import UpTime
 
 # logging format

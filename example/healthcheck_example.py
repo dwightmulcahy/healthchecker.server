@@ -10,7 +10,7 @@ import flask
 from flask_api.status import is_success
 
 from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
-from reqUtils import getMyIpAddr
+from iputils import getMyIpAddr
 from uptime import UpTime
 
 # formatting for log messages

@@ -50,6 +50,42 @@ if __name__ == "__main__":
 
 ```
 
+## healthchecker.server configuration
+
+HealthChecker.Server can be configured via command-line, environment variables or configuration file.
+Specifying command-line or environment options will override the configuration file options. Configuration 
+file options override default options. A combination of command-line, environment variables and configuration
+file can be used.
+
+The resolution order for any given option is: Command-Line > Environment Variables > Configuration file > Default.
+
+### Command line options
+#### -v, --verbose
+Allows the logging to be more verbose.  Can be pretty noisy, use carefully.
+
+#### -t, --test
+Test mode used for development.
+
+#### -d, --debug
+Debug mode with more logging messages generated.
+
+#### -gt, --gmail_token TEXT
+Gmail API token to use to send out email.  If not defined sending email will be disabled.
+
+#### -ba, --bind_addr TEXT
+#### -p, --port INTEGER
+
+#### --config FILE
+Read configuration from FILE.  FILE defaults to `./config`. 
+
+Config file supports files formatted according to Configobj’s unrepr mode (https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode).
+
+The file should have one option per line in the form of `optionName=value`where the `optionName` is the full option name.  
+i.e. `debug=True`.
+
+#### --help
+Show options available from command line.
+
 ## Health check parameters
 
 **Ping Protocol**

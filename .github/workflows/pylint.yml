@@ -12,3 +12,5 @@ jobs:
       uses: cclauss/GitHub-Action-for-pylint@0.7.0
     - name: Flake8
       uses: tayfun/flake8-your-pr@1.0.1
+    - name: Bandit Check
+      uses: jpetrucciani/bandit-check@1.6.2

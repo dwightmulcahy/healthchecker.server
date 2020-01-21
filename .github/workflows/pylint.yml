@@ -8,5 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: GitHub Action for pylint
+    - name: Pylint
       uses: cclauss/GitHub-Action-for-pylint@0.7.0
+    - name: Flake8
+      uses: tayfun/flake8-your-pr@1.0.1

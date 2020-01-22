@@ -1,17 +1,15 @@
+from http.client import responses
+import logging
+import flask
+from flask_api.status import is_success
+from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
+from iputils import getMyIpAddr
+from uptime import UpTime
 import sys
 if not sys.version_info > (3, 6):
     print('Python3.6 is required to run this')
     sys.exit(-1)
 
-from http.client import responses
-import logging
-
-import flask
-from flask_api.status import is_success
-
-from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
-from iputils import getMyIpAddr
-from uptime import UpTime
 
 # formatting for log messages
 logging.basicConfig(

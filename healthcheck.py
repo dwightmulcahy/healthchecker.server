@@ -1,21 +1,18 @@
-import sys
-
-if not sys.version_info > (3, 6):
-    print('Python3.6 is required to run this')
-    sys.exit(-1)
-
 from enum import Enum
-import requests
-
+from requests import exceptions
 from flask import jsonify, make_response
 from flask_api import status
 from zeroconf import Zeroconf
+from sys import exit, version_info
+from iputils import requestsRetrySession
+if not version_info > (3, 6):
+    print('Python3.6 is required to run this')
+    exit(-1)
 
-#
+
 # HealthCheck RFC specification
 # https://tools.ietf.org/id/draft-inadarei-api-health-check-02.html#rfc.section.3
 # https://inadarei.github.io/rfc-healthcheck/
-from iputils import requestsRetrySession
 
 
 class HealthStatus(Enum):
@@ -106,12 +103,12 @@ class HealthCheckResponse:
         self.custom("description", f"health of {app} service")
         return self
 
-    def notes(self, note: str=""):
+    def notes(self, note: str = ""):
         """Notes related to this health check"""
         self.custom("notes", note)
         return self
 
-    def details(self, details: str=""):
+    def details(self, details: str = ""):
         """Detail notes"""
         self.custom("details", details)
         return self
@@ -140,6 +137,7 @@ class HealthCheckResponse:
             'Connection': 'close',
         }
         return res
+
 
 class HealthCheckerServer:
     TYPE = "_http._tcp.local."
@@ -186,7 +184,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except requests.exceptions:
+        except exceptions:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
@@ -202,7 +200,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except requests.exceptions:
+        except exceptions:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):

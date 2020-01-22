@@ -1,18 +1,10 @@
-from sys import exit, version_info
-
-import requests
-
-if not version_info > (3, 7):
-    print('Python3.7 is required to run this')
-    exit(-1)
-
+from requests import exceptions
 from datetime import datetime, timedelta
 import logging
 from os import path
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
 from dataclasses import dataclass, field
 from typing import List
-
 import flask
 import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
@@ -24,10 +16,14 @@ from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python
 from validators import url, email, between, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
-
-import healthcheck
+from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus
 from iputils import findFreePort, getMyIpAddr
 from uptime import UpTime
+from sys import exit, version_info
+if not version_info > (3, 7):
+    print('Python3.7 is required to run this')
+    exit(-1)
+
 
 # logging format
 logging.basicConfig(
@@ -51,6 +47,7 @@ sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
 # Dictionary of apps monitor
 appsMonitored = {}
 gmail = None
+
 
 def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject: str):
     if not sendTo:
@@ -81,7 +78,7 @@ def health():
     logging.info(f"{APP_NAME} /health endpoint executing")
     currentDatetime = datetime.now()
 
-    healthCheckResponse = healthcheck.HealthCheckResponse().status(healthcheck.HealthStatus.PASS)\
+    healthCheckResponse = HealthCheckResponse().status(HealthStatus.PASS)\
         .description(app=APP_NAME)\
         .releaseID('1.0.0')\
         .serviceID('')\
@@ -208,6 +205,9 @@ def monitorRequest():
 
 # This is the scheduled job that checks the status of the app
 def healthCheck(appname: str):
+
+    # TODO: look at replacing some of this with a State Machine to reduce complexity
+
     HEALTHY = "Healthy"
     WARN = "Warn"
     UNHEALTHY = "Unhealthy"
@@ -226,9 +226,9 @@ def healthCheck(appname: str):
             'Cache-Control': 'max-age=3600',
             'Connection': 'close',
         }
-        response = healthcheck.requestsRetrySession().get(healthUrl, headers=getHeaders, timeout=healthTimeout)
+        response = requestsRetrySession().get(healthUrl, headers=getHeaders, timeout=healthTimeout)
         statusCode = response.status_code
-    except requests.exceptions:
+    except exceptions:
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     # keep the last healthcheck times
@@ -267,7 +267,7 @@ def healthCheck(appname: str):
     elif appData.healthy == 0 and appData.unhealthy >= appData.unhealthy_threshold:
         if appData.health != UNHEALTHY:
             logging.error(f"`{appname}` is unhealthy")
-            sendEmail( appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"`{appname}` is unhealthy")
+            sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"`{appname}` is unhealthy")
         appData.health = UNHEALTHY
     elif appData.unhealthy_threshold > 2 and appData.unhealthy >= 2:
         if appData.health != WARN:

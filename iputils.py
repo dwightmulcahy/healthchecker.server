@@ -11,7 +11,7 @@ def getMyIpAddr():
         # google DNS should be ping-able
         s.connect(("8.8.8.8", 1))
         IP = s.getsockname()[0]
-    except:
+    except OSError:
         IP = "127.0.0.1"
     finally:
         s.close()

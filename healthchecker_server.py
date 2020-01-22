@@ -1,4 +1,7 @@
 from sys import exit, version_info
+
+import requests
+
 if not version_info > (3, 7):
     print('Python3.7 is required to run this')
     exit(-1)
@@ -225,7 +228,7 @@ def healthCheck(appname: str):
         }
         response = healthcheck.requestsRetrySession().get(healthUrl, headers=getHeaders, timeout=healthTimeout)
         statusCode = response.status_code
-    except:
+    except requests.exceptions:
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     # keep the last healthcheck times

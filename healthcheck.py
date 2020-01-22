@@ -1,9 +1,11 @@
 import sys
+
 if not sys.version_info > (3, 6):
     print('Python3.6 is required to run this')
     sys.exit(-1)
 
 from enum import Enum
+import requests
 
 from flask import jsonify, make_response
 from flask_api import status
@@ -184,7 +186,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except:
+        except requests.exceptions:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
@@ -200,7 +202,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except:
+        except requests.exceptions:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):

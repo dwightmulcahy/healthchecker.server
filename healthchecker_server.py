@@ -1,13 +1,12 @@
-import sys
-
-if not sys.version_info > (3, 7):
+from sys import exit, version_info
+if not version_info > (3, 7):
     print('Python3.7 is required to run this')
-    sys.exit(-1)
+    exit(-1)
 
-import datetime
-import logging
-import os
-import socket
+from datetime import datetime, timedelta
+from logging import basicConfig, warning, getLogger, ERROR, INFO, error, WARNING, info
+from os import path
+from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
 from dataclasses import dataclass, field
 from typing import List
 
@@ -20,18 +19,18 @@ from flask_api import status
 from gmail import Message, GMailWorker, GMail  # https://github.com/paulc/gmail-sender
 from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python-zeroconf
 from validators import url, email, between, ip_address  # https://github.com/kvesteri/validators
-import click
-import click_config_file
+from click import command, option
+from click_config_file import configuration_option
 
 import healthcheck
 from iputils import findFreePort, getMyIpAddr
 from uptime import UpTime
 
 # logging format
-logging.basicConfig(
+basicConfig(
     format="%(asctime)s-%(levelname)s: %(message)s",
     datefmt="%d-%b %H:%M:%S",
-    level=logging.INFO,
+    level=INFO,
 )
 
 app = flask.Flask(__name__)
@@ -40,7 +39,7 @@ APP_NAME = "HealthChecker microservice"
 uptime = UpTime()
 
 # create background scheduler used for healthchecks
-logging.info("Starting scheduler.")
+info("Starting scheduler.")
 sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
 
 # TODO: look at adding a light db to this instead of a dict
@@ -56,7 +55,7 @@ def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject:
     if not htmlMessageBody:
         htmlMessageBody = messageBody
 
-    logging.info(f"sending email titled '{emailSubject}'")
+    info(f"sending email titled '{emailSubject}'")
     messageBody = messageBody + "\n\nEmail send by HealthChecker.Server"
     msg = Message(
         subject=emailSubject,
@@ -66,7 +65,7 @@ def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject:
         reply_to="do@notreply.com",
     )
     gmail.send(msg)
-    logging.info(f"Email sent to {sendTo}.")
+    info(f"Email sent to {sendTo}.")
 
 
 # ---------------------
@@ -76,8 +75,8 @@ def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject:
 
 @app.route("/health")
 def health():
-    logging.info(f"{APP_NAME} /health endpoint executing")
-    currentDatetime = datetime.datetime.now()
+    info(f"{APP_NAME} /health endpoint executing")
+    currentDatetime = datetime.now()
 
     healthCheckResponse = healthcheck.HealthCheckResponse().status(healthcheck.HealthStatus.PASS)\
         .description(app=APP_NAME)\
@@ -104,7 +103,7 @@ def health():
 
 @app.route("/")
 def hello():
-    logging.info(f"{APP_NAME} root endpoint executing")
+    info(f"{APP_NAME} root endpoint executing")
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
@@ -121,10 +120,10 @@ class AppData:
     interval: int = DEFAULT_INTERVAL
     unhealthy_threshold: int = DEFAULT_UNHEALTHY_THRESHOLD
     healthy_threshold: int = DEFAULT_HEALTHY_THRESHOLD
-    lastcheck: datetime.datetime = None
-    lasthealthy: datetime.datetime = None
+    lastcheck: datetime = None
+    lasthealthy: datetime = None
     health: str = 'Pending'
-    healthchecks: List[datetime.datetime] = field(default_factory=list)
+    healthchecks: List[datetime] = field(default_factory=list)
     unhealthy: int = 0
     healthy: int = 0
 
@@ -140,7 +139,7 @@ def monitorRequest():
     appname = request.form["appname"]
     monitorUrl = request.form["url"]
     if appname is None or monitorUrl is None:
-        logging.error(f"`{appname}` tried to register without the minimum parameters.")
+        error(f"`{appname}` tried to register without the minimum parameters.")
         return make_response(
             f"Invalid parameters for app `{appname}`.\nMinimal request should have `appname` and `url` defined.",
             status.HTTP_400_BAD_REQUEST,
@@ -154,7 +153,7 @@ def monitorRequest():
         if appData.unhealthy >= appData.unhealthy_threshold:
             # reset the healthy counter if we meet the requirements for unhealthy
             appData.healthy = 0
-        logging.warning(f"`{appname}` tried to reregister again.")
+        warning(f"`{appname}` tried to reregister again.")
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
@@ -187,7 +186,7 @@ def monitorRequest():
         appsMonitored[appname] = AppData(monitorUrl, emailAddr, timeout, interval, unhealthy_threshold, healthy_threshold)
 
         # create a job with the above parameters
-        logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
+        info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
         sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
 
         # return request created
@@ -197,7 +196,7 @@ def monitorRequest():
         )
     else:
         # return error processing
-        logging.error(f"`{appname}` tried to register with the invalid parameters.")
+        error(f"`{appname}` tried to register with the invalid parameters.")
         return make_response(
             f"One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.",
             status.HTTP_406_NOT_ACCEPTABLE,
@@ -210,7 +209,7 @@ def healthCheck(appname: str):
     WARN = "Warn"
     UNHEALTHY = "Unhealthy"
 
-    logging.info(f"Doing healthcheck for `{appname}`.")
+    info(f"Doing healthcheck for `{appname}`.")
     # thread worker to monitor an app
     appData = appsMonitored[appname]
     healthUrl = appData.url + "/health"
@@ -230,7 +229,7 @@ def healthCheck(appname: str):
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     # keep the last healthcheck times
-    appData.lastcheck = datetime.datetime.now()
+    appData.lastcheck = datetime.now()
     appData.healthchecks.append((appData.lastcheck, statusCode))
     if len(appData.healthchecks) > appData.healthy_threshold:
         appData.healthchecks.pop(0)
@@ -250,7 +249,7 @@ def healthCheck(appname: str):
             appData.healthy = 0
 
             # pause any jobs that are reporting unhealthy for over a day
-            if datetime.datetime.now() - appData.lastcheck > datetime.timedelta(days=1):
+            if datetime.now() - appData.lastcheck > timedelta(days=1):
                 sched.pause_job(appname)
                 sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
                           f"Monitoring for `{appname}` has been paused")
@@ -258,18 +257,18 @@ def healthCheck(appname: str):
     # update the status
     if appData.unhealthy == 0 and appData.healthy >= appData.healthy_threshold:
         if appData.health != HEALTHY:
-            logging.info(f"`{appname}` is back to healthy")
+            info(f"`{appname}` is back to healthy")
             sendEmail(appData.emailAddr, f"`{appname}` responded HEALTHY to {appData.healthy_threshold} health checks.",
                       "", f"`{appname}` is back to healthy")
         appData.health = HEALTHY
     elif appData.healthy == 0 and appData.unhealthy >= appData.unhealthy_threshold:
         if appData.health != UNHEALTHY:
-            logging.error(f"`{appname}` is unhealthy")
+            error(f"`{appname}` is unhealthy")
             sendEmail( appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"`{appname}` is unhealthy")
         appData.health = UNHEALTHY
     elif appData.unhealthy_threshold > 2 and appData.unhealthy >= 2:
         if appData.health != WARN:
-            logging.warning(f"`{appname}` health is degraded")
+            warning(f"`{appname}` health is degraded")
             sendEmail(appData.emailAddr, f"`{appname}` has not responded to the last two health checks.",
                       '', f"`{appname}` is degraded")
         appData.health = WARN
@@ -336,11 +335,11 @@ def statusPage():
 def registerService(bindAddr, port):
     # register the service with zeroconf so it can be found
     zeroConf = Zeroconf()
-    addresses = [socket.inet_aton(bindAddr)]
+    addresses = [inet_aton(bindAddr)]
     # addresses = [socket.inet_aton(getMyIpAddr())]
-    if socket.has_ipv6:
-        addresses.append(socket.inet_pton(socket.AF_INET6, "::1"))
-    logging.info(f"registering service _healthchecker._http._tcp.local. at {bindAddr}:{port}")
+    if has_ipv6:
+        addresses.append(inet_pton(AF_INET6, "::1"))
+    info(f"registering service _healthchecker._http._tcp.local. at {bindAddr}:{port}")
     zeroConf.register_service(
         ServiceInfo(
             "_http._tcp.local.",
@@ -353,40 +352,40 @@ def registerService(bindAddr, port):
     return zeroConf
 
 
-@click.command()
-@click.option('--verbose', '-v', is_flag=True)
-@click.option('--test', '-t', is_flag=True)
-@click.option('--debug', '-d', envvar="DEBUG", is_flag=True, default=False)
-@click.option('--gmail_token', '-gt', envvar="GMAIL_TOKEN", default=None)
-@click.option('--bind_addr', '-ba', envvar="BIND_ADDR", default=getMyIpAddr())
-@click.option('--port', '-p', envvar="PORT", default=findFreePort())
-@click_config_file.configuration_option(config_file_name=os.path.dirname(os.path.realpath(__file__))+'/config')
+@command()
+@option('--verbose', '-v', is_flag=True)
+@option('--test', '-t', is_flag=True)
+@option('--debug', '-d', envvar="DEBUG", is_flag=True, default=False)
+@option('--gmail_token', '-gt', envvar="GMAIL_TOKEN", default='')
+@option('--bind_addr', '-ba', envvar="BIND_ADDR", default=getMyIpAddr())
+@option('--port', '-p', envvar="PORT", default=findFreePort())
+@configuration_option(config_file_name=path.dirname(path.realpath(__file__)) + '/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):
     global gmail
 
-    logging.info(f"Started {APP_NAME}")
+    info(f"Started {APP_NAME}")
 
     # quiet the output from some of the libs
-    logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    logging.getLogger("requests").setLevel(logging.ERROR)
-    logging.getLogger("urllib3").setLevel(logging.ERROR)
-    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    getLogger("werkzeug").setLevel(ERROR)
+    getLogger("requests").setLevel(ERROR)
+    getLogger("urllib3").setLevel(ERROR)
+    getLogger("apscheduler").setLevel(WARNING)
 
     # get environment variable for gmail server
     if gmail_token:
-        logging.info(f'Gmail server enabled.')
+        info(f'Gmail server enabled.')
         if debug:
             gmail = GMail(f"{APP_NAME} <HealthChecker.Server@gmail.com>", gmail_token)
         else:
             gmail = GMailWorker(f"{APP_NAME} <HealthChecker.Server@gmail.com>", gmail_token)
     else:
-        logging.warning('Gmail server token not defined.')
+        warning('Gmail server token not defined.')
 
     # bind locally to a free port
-    logging.info(f"Bind Address: {bind_addr}:{port}")
+    info(f"Bind Address: {bind_addr}:{port}")
 
     # more verbose logging when this is set and use flask webserver
-    logging.info(f"Debug set to {debug}")
+    info(f"Debug set to {debug}")
 
     # start the scheduler out... nothing to do right now
     sched.start()
@@ -394,18 +393,18 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     # register this service with zeroConf
     zc = registerService(bind_addr, port)
 
-    logging.info("running restapi server press Ctrl+C to exit.")
+    info("running restapi server press Ctrl+C to exit.")
     try:
-        logging.getLogger("waitress").setLevel(logging.ERROR)
+        getLogger("waitress").setLevel(ERROR)
         if debug:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY
-            app.run(host=bind_addr, port=port, debug=True)
+            app.run(host=bind_addr, port=port, debug=False)
         else:
             # Run the production server
             waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):
-        logging.info("Shutting down scheduler task.")
+        info("Shutting down scheduler task.")
         sched.shutdown()
         zc.unregister_service(info)
         zc.close()

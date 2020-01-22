@@ -27,7 +27,7 @@ app = flask.Flask(__name__)
 APP_NAME = "Sample HealthChecker.Server App"
 uptime = UpTime()
 
-BIND_ADDRESS = "0.0.0.0"
+BIND_ADDRESS = "0.0.0.0"    # nosec
 PORT = 9090
 
 

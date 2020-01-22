@@ -18,7 +18,7 @@ from iputils import requestsRetrySession
 
 class HealthStatus(Enum):
     # For “pass” status, HTTP response code in the 2xx-3xx range MUST be used.
-    PASS = "pass"
+    PASS = "pass"  # nosec
 
     # For “warn” status, endpoints MUST return HTTP status in the 2xx-3xx range,
     # and additional information SHOULD be provided, utilizing optional fields of the response.

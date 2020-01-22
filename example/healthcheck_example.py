@@ -4,7 +4,7 @@ if not sys.version_info > (3, 6):
     sys.exit(-1)
 
 from http.client import responses
-from logging import basicConfig, warning, INFO, info
+import logging
 
 import flask
 from flask_api.status import is_success
@@ -14,10 +14,10 @@ from iputils import getMyIpAddr
 from uptime import UpTime
 
 # formatting for log messages
-basicConfig(
+logging.basicConfig(
     format="%(asctime)s-%(levelname)s: %(message)s",
     datefmt="%d-%b %H:%M:%S",
-    level=INFO,
+    level=logging.INFO,
 )
 
 # start flask using the appname
@@ -34,7 +34,7 @@ PORT = 9090
 # health check endpoint
 @app.route("/health")
 def health():
-    info(f"{APP_NAME} /health endpoint executing")
+    logging.info(f"{APP_NAME} /health endpoint executing")
 
     # build the response to send back
     res = HealthCheckResponse().description(APP_NAME).status(HealthStatus.PASS).build()
@@ -47,24 +47,24 @@ def hello():
 
 
 if __name__ == "__main__":
-    info(f"Started {APP_NAME}")
+    logging.info(f"Started {APP_NAME}")
 
     # get the healthchecker server
     healthCheckerServer = HealthCheckerServer(app=APP_NAME, url=f"http://{getMyIpAddr()}:{PORT}")
-    info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
+    logging.info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
 
     # register with the HealthChecker Server that we want to be monitored
     hcs = healthCheckerServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
-        warning(f"HealthChecker microservice returned a status of {hcs} ({responses[hcs]})")
+        logging.warning(f"HealthChecker microservice returned a status of {hcs} ({responses[hcs]})")
     else:
-        info(f"Registered with HealthChecker microservice at {healthCheckerServer.url()}")
+        logging.info(f"Registered with HealthChecker microservice at {healthCheckerServer.url()}")
 
     # run the web server
-    info("Press Ctrl+C to exit.")
+    logging.info("Press Ctrl+C to exit.")
     try:
         app.run(host=BIND_ADDRESS, port=PORT, debug=False)
     except KeyboardInterrupt:
-        info("Shutting down...")
+        logging.info("Shutting down...")
         # remove ourselves from being monitored
         healthCheckerServer.stop()

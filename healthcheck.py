@@ -1,5 +1,4 @@
 from enum import Enum
-from requests import exceptions
 from flask import jsonify, make_response
 from flask_api import status
 from zeroconf import Zeroconf
@@ -184,7 +183,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except exceptions:
+        except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
@@ -200,7 +199,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except exceptions:
+        except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):

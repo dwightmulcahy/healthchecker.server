@@ -1,4 +1,3 @@
-from requests import exceptions
 from datetime import datetime, timedelta
 import logging
 from os import path
@@ -228,7 +227,7 @@ def healthCheck(appname: str):
         }
         response = requestsRetrySession().get(healthUrl, headers=getHeaders, timeout=healthTimeout)
         statusCode = response.status_code
-    except exceptions:
+    except Exception:
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     # keep the last healthcheck times

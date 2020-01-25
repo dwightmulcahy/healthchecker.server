@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/HealthChecker-Logo.png?raw=true" height="200"/>
+  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/img/HealthChecker-Logo.png?raw=true" height="200"/>
 </p>
 
 # Healthchecker.Server
@@ -85,6 +85,12 @@ i.e. `debug=True`.
 
 #### --help
 Show options available from command line.
+
+## Health Check State Machine
+
+<p align="center">
+  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/img/statemachine.svg?raw=true" height="200"/>
+</p>
 
 ## Health check parameters
 

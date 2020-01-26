@@ -109,67 +109,67 @@ if __name__ == '__main__':
     healthState = Health(unhealthyThreshold=4, healthyThreshold=4, debug=True)
 
     # initial state machine state
-    assert healthState.state == Health.States.UNKNOWN
+    assert healthState.state == Health.States.UNKNOWN                   #nosec
 
     # test transition UNKNOWN -> HEALTHY state
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
-    assert healthState.state == Health.States.HEALTHY
+    assert healthState.state == Health.States.HEALTHY                   #nosec
 
     # make sure the counters are accurate
-    assert healthState.healthyChecks == healthState.healthyThreshold
-    assert healthState.unhealthyChecks == 0
+    assert healthState.healthyChecks == healthState.healthyThreshold    #nosec
+    assert healthState.unhealthyChecks == 0                             #nosec
 
     # counters shouldn't change after getting to threshold
     healthState.healthyCheck()
-    assert healthState.healthyChecks == healthState.healthyThreshold
-    assert healthState.unhealthyChecks == 0
+    assert healthState.healthyChecks == healthState.healthyThreshold    #nosec
+    assert healthState.unhealthyChecks == 0                             #nosec
 
     # test transition HEALTHY -> DEGRADING state
     healthState.unhealthyCheck()
     healthState.unhealthyCheck()
-    assert healthState.state == Health.States.DEGRADING
+    assert healthState.state == Health.States.DEGRADING                 #nosec
 
     # test transition DEGRADING -> UNHEALTHY state
     healthState.unhealthyCheck()
     healthState.unhealthyCheck()
-    assert healthState.state == Health.States.UNHEALTHY
+    assert healthState.state == Health.States.UNHEALTHY                 #nosec
 
     # counters shouldn't change after getting to threshold
-    assert healthState.unhealthyChecks == healthState.unhealthyThreshold
-    assert healthState.healthyChecks == 0
+    assert healthState.unhealthyChecks == healthState.unhealthyThreshold    #nosec
+    assert healthState.healthyChecks == 0                                   #nosec
 
     # a single healthy check does not mean a state transition yet
     healthState.healthyCheck()
-    assert healthState.unhealthyChecks == healthState.unhealthyThreshold
-    assert healthState.healthyChecks == 1
+    assert healthState.unhealthyChecks == healthState.unhealthyThreshold    #nosec
+    assert healthState.healthyChecks == 1                                   #nosec
 
     # test transition UNHEALTHY -> HEALTHY state
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
-    assert healthState.state == Health.States.HEALTHY
+    assert healthState.state == Health.States.HEALTHY                       #nosec
 
     # test transition HEALTHY -> DEGRADING state
     healthState.unhealthyCheck()
     healthState.unhealthyCheck()
-    assert healthState.state == Health.States.DEGRADING
+    assert healthState.state == Health.States.DEGRADING                     #nosec
 
     # test transition DEGRADING -> HEALTHY state
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
     healthState.healthyCheck()
-    assert healthState.state == Health.States.HEALTHY
+    assert healthState.state == Health.States.HEALTHY                       #nosec
 
     # test resetting the state to UNKNOWN
     healthState.unknown()
-    assert healthState.state == Health.States.UNKNOWN
+    assert healthState.state == Health.States.UNKNOWN                       #nosec
 
     # test transition UNKNOWN -> UNHEALTHY state
     healthState.unhealthyCheck()
     healthState.unhealthyCheck()
-    assert healthState.state == Health.States.DEGRADING
+    assert healthState.state == Health.States.DEGRADING                     #nosec

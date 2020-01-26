@@ -1,4 +1,3 @@
-from requests import exceptions
 from datetime import datetime, timedelta
 import logging
 from os import path
@@ -18,6 +17,7 @@ from click import command, option
 from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus
 from iputils import findFreePort, getMyIpAddr
+from statemachine import Health
 from uptime import UpTime
 from sys import exit, version_info
 if not version_info > (3, 7):
@@ -49,14 +49,16 @@ appsMonitored = {}
 gmail = None
 
 
-def sendEmail(sendTo: str, messageBody: str, htmlMessageBody: str, emailSubject: str):
-    if not sendTo:
+def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', emailSubject: str = ''):
+    # if there is noone to send it to or no gmail token return
+    if not sendTo or not gmail:
         return
+
+    messageBody = messageBody + "\n\nEmail send by HealthChecker.Server"
     if not htmlMessageBody:
         htmlMessageBody = messageBody
 
     logging.info(f"sending email titled '{emailSubject}'")
-    messageBody = messageBody + "\n\nEmail send by HealthChecker.Server"
     msg = Message(
         subject=emailSubject,
         to=sendTo,
@@ -107,25 +109,28 @@ def hello():
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
+# TODO: move the DEFAULTs to healthcheck.py
+
 @dataclass
 class AppData:
+    # defaults
     DEFAULT_TIME_OUT = 5
     DEFAULT_INTERVAL = 30
     DEFAULT_UNHEALTHY_THRESHOLD = 2
     DEFAULT_HEALTHY_THRESHOLD = 10
 
+    # endpoint connection details
     url: str = ''
-    emailAddr: str = ''
     timeout: int = DEFAULT_TIME_OUT
     interval: int = DEFAULT_INTERVAL
-    unhealthy_threshold: int = DEFAULT_UNHEALTHY_THRESHOLD
-    healthy_threshold: int = DEFAULT_HEALTHY_THRESHOLD
-    lastcheck: datetime = None
+
+    # statemachine
+    healthState: Health = None
+
+    # health statistics
     lasthealthy: datetime = None
-    health: str = 'Pending'
+    lastcheck: datetime = None
     healthchecks: List[datetime] = field(default_factory=list)
-    unhealthy: int = 0
-    healthy: int = 0
 
 
 @app.route("/healthchecker/monitor", methods=["POST"])
@@ -133,9 +138,7 @@ def monitorRequest():
     # - endpoint to register an app to monitor
     global appsMonitored
 
-    # TODO: verify that the URL is correctly formatted
-    # https://docs.python.org/3/library/urllib.parse.html#module-urllib.parse
-
+    # check that the minimal required info is passed
     appname = request.form["appname"]
     monitorUrl = request.form["url"]
     if appname is None or monitorUrl is None:
@@ -148,12 +151,9 @@ def monitorRequest():
     # if the app is trying to register again then there probably is something
     # wrong with the app.  Possibly erroring out and restarting?
     if appname in appsMonitored:
-        appData = appsMonitored[appname]
-        appData.unhealthy += (1 if appData.unhealthy < appData.unhealthy_threshold else 0)
-        if appData.unhealthy >= appData.unhealthy_threshold:
-            # reset the healthy counter if we meet the requirements for unhealthy
-            appData.healthy = 0
         logging.warning(f"`{appname}` tried to reregister again.")
+        appData = appsMonitored[appname]
+        appData.healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
@@ -165,6 +165,8 @@ def monitorRequest():
     emailAddr = request.form["email"]
     if not email(emailAddr):
         return make_response(f"`{emailAddr}` is not a valid email", status.HTTP_400_BAD_REQUEST)
+
+    # TODO: move the defaults/min/max to healthcheck.py
 
     #   Response Timeout: 5 sec (2-60sec)
     timeout = int(request.form["timeout"])
@@ -183,7 +185,17 @@ def monitorRequest():
         and between(unhealthy_threshold, min=2, max=10)
     ):
         # store off the parameters for the job
-        appsMonitored[appname] = AppData(monitorUrl, emailAddr, timeout, interval, unhealthy_threshold, healthy_threshold)
+        appsMonitored[appname] = AppData(
+            monitorUrl, timeout, interval,
+            Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold)
+        )
+
+        # if there is an email register it with the statemachine
+        if emailAddr and gmail:
+            logging.info(f"Registering email for `{appname}` to {emailAddr}.")
+            appsMonitored[appname].healthState.registerEmail(
+                appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
+            )
 
         # create a job with the above parameters
         logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
@@ -205,12 +217,7 @@ def monitorRequest():
 
 # This is the scheduled job that checks the status of the app
 def healthCheck(appname: str):
-
-    # TODO: look at replacing some of this with a State Machine to reduce complexity
-
-    HEALTHY = "Healthy"
-    WARN = "Warn"
-    UNHEALTHY = "Unhealthy"
+    # TODO: check that appname is in appsMonitored[]
 
     logging.info(f"Doing healthcheck for `{appname}`.")
     # thread worker to monitor an app
@@ -219,7 +226,7 @@ def healthCheck(appname: str):
     healthTimeout = appData.timeout
 
     # make the request to the <appUrl>/health endpoint
-    statusCode = status.HTTP_200_OK
+    statusCode = None
     try:
         getHeaders = {
             'Content-Type': 'application/health+json',
@@ -228,55 +235,33 @@ def healthCheck(appname: str):
         }
         response = requestsRetrySession().get(healthUrl, headers=getHeaders, timeout=healthTimeout)
         statusCode = response.status_code
-    except exceptions:
+    except Exception:
         statusCode = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     # keep the last healthcheck times
     appData.lastcheck = datetime.now()
     appData.healthchecks.append((appData.lastcheck, statusCode))
-    if len(appData.healthchecks) > appData.healthy_threshold:
+    if len(appData.healthchecks) > appData.healthState.healthyThreshold:
         appData.healthchecks.pop(0)
 
     # if in unhealthy state wait till it meets the requirements for healthy again
     if statusCode == status.HTTP_200_OK:
-        appData.healthy += 1 if appData.healthy < appData.healthy_threshold else 0
-        if appData.healthy >= appData.healthy_threshold:
-            appData.lasthealthy = appData.lastcheck
-            # reset the unhealthy counter if we meet the requirements for healthy
-            appData.unhealthy = 0
+        # healthcheck was successful
+        appData.healthState.healthyCheck()
+        if appData.healthState.isHealthy():
+            appData.lasthealthy = datetime.now()
     else:
         # healthcheck was not successful
-        appData.unhealthy += 1 if appData.unhealthy < appData.unhealthy_threshold else 0
-        if appData.unhealthy >= appData.unhealthy_threshold:
-            # reset the healthy counter if we meet the requirements for unhealthy
-            appData.healthy = 0
+        appData.healthState.unhealthyCheck()
 
-            # pause any jobs that are reporting unhealthy for over a day
-            if datetime.now() - appData.lastcheck > timedelta(days=1):
-                sched.pause_job(appname)
-                sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
-                          f"Monitoring for `{appname}` has been paused")
+        # pause any jobs that are reporting unhealthy for over a day
+        if appData.healthState.isUnhealthy() and \
+                appData.lasthealthy and (datetime.now() - appData.lasthealthy) > timedelta(days=1):
+            # tell the scheduler to pause this job
+            sched.pause_job(appname)
 
-    # update the status
-    if appData.unhealthy == 0 and appData.healthy >= appData.healthy_threshold:
-        if appData.health != HEALTHY:
-            logging.info(f"`{appname}` is back to healthy")
-            sendEmail(appData.emailAddr, f"`{appname}` responded HEALTHY to {appData.healthy_threshold} health checks.",
-                      "", f"`{appname}` is back to healthy")
-        appData.health = HEALTHY
-    elif appData.healthy == 0 and appData.unhealthy >= appData.unhealthy_threshold:
-        if appData.health != UNHEALTHY:
-            logging.error(f"`{appname}` is unhealthy")
-            sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '', f"`{appname}` is unhealthy")
-        appData.health = UNHEALTHY
-    elif appData.unhealthy_threshold > 2 and appData.unhealthy >= 2:
-        if appData.health != WARN:
-            logging.warning(f"`{appname}` health is degraded")
-            sendEmail(appData.emailAddr, f"`{appname}` has not responded to the last two health checks.",
-                      '', f"`{appname}` is degraded")
-        appData.health = WARN
-    else:
-        appData.health = "Unknown"
+            sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
+                      f"Monitoring for `{appname}` has been paused")
 
 
 @app.route("/healthchecker/stopmonitoring", methods=["GET"])

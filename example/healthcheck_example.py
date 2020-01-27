@@ -3,7 +3,8 @@ import flask
 from http.client import responses
 from flask_api.status import is_success
 from healthcheck import HealthStatus, HealthCheckResponse, HealthCheckerServer
-from utils import getMyIpAddr, UpTime
+from utils.iputils import getMyIpAddr
+from utils.uptime import UpTime
 import sys
 if not sys.version_info > (3, 6):
     print('Python3.6 is required to run this')

@@ -24,6 +24,7 @@ def findFreePort():
         return s.getsockname()[1]
 
 
+# https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 # This creates a session request that will retry with backoff timing.
 # idea from https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):

@@ -15,7 +15,7 @@ from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python
 from validators import url, email, between, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
-from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus
+from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
 from iputils import findFreePort, getMyIpAddr
 from statemachine import Health
 from uptime import UpTime
@@ -109,20 +109,12 @@ def hello():
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
-# TODO: move the DEFAULTs to healthcheck.py
-
 @dataclass
 class AppData:
-    # defaults
-    DEFAULT_TIME_OUT = 5
-    DEFAULT_INTERVAL = 30
-    DEFAULT_UNHEALTHY_THRESHOLD = 2
-    DEFAULT_HEALTHY_THRESHOLD = 10
-
     # endpoint connection details
     url: str = ''
-    timeout: int = DEFAULT_TIME_OUT
-    interval: int = DEFAULT_INTERVAL
+    timeout: int = MonitorValues.DEFAULT_TIME_OUT
+    interval: int = MonitorValues.DEFAULT_INTERVAL
 
     # statemachine
     healthState: Health = None
@@ -179,10 +171,10 @@ def monitorRequest():
 
     # make sure the parameters are sane
     if (
-        between(timeout, min=2, max=60)
-        and between(interval, min=5, max=300)
-        and between(healthy_threshold, min=2, max=10)
-        and between(unhealthy_threshold, min=2, max=10)
+        between(timeout, min=MonitorValues.MIN_TIMEOUT, max=MonitorValues.MAX_TIMEOUT)
+        and between(interval, min=MonitorValues.MIN_INTERVAL, max=MonitorValues.MAX_INTERVAL)
+        and between(healthy_threshold, min=MonitorValues.MIN_HEALTHY_THRESHOLD, max=MonitorValues.MAX_HEALTHY_THRESHOLD)
+        and between(unhealthy_threshold, min=MonitorValues.MIN_UNHEALTHY_THRESHOLD, max=MonitorValues.MAX_UNHEALTHY_THRESHOLD)
     ):
         # store off the parameters for the job
         appsMonitored[appname] = AppData(

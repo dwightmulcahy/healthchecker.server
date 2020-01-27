@@ -57,6 +57,15 @@ class Health(object):
         if debug:
             # Set transitions' log level to DEBUG, more messages
             logging.getLogger('transitions').setLevel(logging.DEBUG)
+
+            self.machine.on_enter_UNKNOWN(lambda: print('Entering UNKNOWN'))
+            self.machine.on_exit_UNKNOWN(lambda: print(f'Exiting UNKNOWN: HC={self.healthyChecks} UHC={self.unhealthyChecks}'))
+            self.machine.on_enter_DEGRADING(lambda: print('Entering DEGRADING'))
+            self.machine.on_exit_DEGRADING(lambda: print(f'Exiting DEGRADING: HC={self.healthyChecks} UHC={self.unhealthyChecks}'))
+            self.machine.on_enter_HEALTHY(lambda: print('Entering HEALTHY'))
+            self.machine.on_exit_HEALTHY(lambda: print(f'Exiting HEALTHY: HC={self.healthyChecks} UHC={self.unhealthyChecks}'))
+            self.machine.on_enter_UNHEALTHY(lambda: print('Entering UNHEALTHY'))
+            self.machine.on_exit_UNHEALTHY(lambda: print(f'Exiting UNHEALTHY: HC={self.healthyChecks} UHC={self.unhealthyChecks}'))
         else:
             # Set transitions' log level to ERROR so only important msgs appear
             logging.getLogger('transitions').setLevel(logging.ERROR)

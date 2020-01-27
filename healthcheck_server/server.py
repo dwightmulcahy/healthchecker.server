@@ -17,10 +17,11 @@ from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python
 from validators import url, email, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
-from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
-from iputils import findFreePort, getMyIpAddr
-from statemachine import Health
-from uptime import UpTime
+
+from healthcheck import HealthStatus, HealthCheckResponse, MonitorValues
+from healthcheck_server.statemachine import Health
+from utils import findFreePort, getMyIpAddr, UpTime
+from utils.iputils import requestsRetrySession
 from sys import exit, version_info
 if not version_info > (3, 7):
     print('Python3.7 is required to run this')

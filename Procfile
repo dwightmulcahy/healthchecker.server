@@ -1,1 +1,1 @@
-web: python3 healthchecker_server.py GMAIL_TOKEN=fktavxosusqddpvy
+web: python3 healthcheck_server/server.py

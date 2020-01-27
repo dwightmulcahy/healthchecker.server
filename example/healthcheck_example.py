@@ -2,9 +2,9 @@ import logging
 import flask
 from http.client import responses
 from flask_api.status import is_success
-from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
-from iputils import getMyIpAddr
-from uptime import UpTime
+from healthcheck import HealthStatus, HealthCheckResponse, HealthCheckerServer
+from utils.iputils import getMyIpAddr
+from utils.uptime import UpTime
 import sys
 if not sys.version_info > (3, 6):
     print('Python3.6 is required to run this')
@@ -52,8 +52,7 @@ if __name__ == "__main__":
     logging.info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
 
     # register with the HealthChecker Server that we want to be monitored
-    hcs = healthCheckerServer.monitor(emailAddr="dwightmulcahy@gmail.com")
-    # hcs = healthCheckerServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
+    hcs = healthCheckerServer.monitor(emailaddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         logging.warning(f"HealthChecker microservice returned a status of {hcs} ({responses[hcs]})")
     else:

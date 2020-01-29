@@ -1,17 +1,16 @@
-import socket
+from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
 from contextlib import closing
-
-import requests
+from requests import packages, Session
 from requests.adapters import HTTPAdapter
 
 
 def getMyIpAddr():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s = socket(AF_INET, SOCK_DGRAM)
     try:
         # google DNS should be ping-able
         s.connect(("8.8.8.8", 1))
         IP = s.getsockname()[0]
-    except:
+    except OSError:
         IP = "127.0.0.1"
     finally:
         s.close()
@@ -19,16 +18,16 @@ def getMyIpAddr():
 
 
 def findFreePort():
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+    with closing(socket(AF_INET, SOCK_STREAM)) as s:
         s.bind(('', 0))
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
 
 # This creates a session request that will retry with backoff timing.
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
-    session = session or requests.Session()
-    retry = requests.packages.urllib3.util.retry.Retry(
+    session = session or Session()
+    retry = packages.urllib3.util.retry.Retry(
         total=retries,
         read=retries,
         connect=retries,

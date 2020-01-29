@@ -1,15 +1,15 @@
-import datetime
+from datetime import datetime
 
 
 class UpTime:
     def __init__(self):
-        self.startDatetime = datetime.datetime.now()
+        self.startDatetime = datetime.now()
 
     def __repr__(self):
         return self.__str__()
 
     def current(self):
-        return (datetime.datetime.now() - self.startDatetime).total_seconds()
+        return (datetime.now() - self.startDatetime).total_seconds()
 
     def __str__(self):
         return self.timetostring(self.current())
@@ -17,7 +17,7 @@ class UpTime:
     def timetostring(self, time):
         seconds = int(time)
         periods = [
-            ('year', 60 * 60 * 24 * 365),('month', 60 * 60 * 24 * 30),
+            ('year', 60 * 60 * 24 * 365), ('month', 60 * 60 * 24 * 30),
             ('day', 60 * 60 * 24), ('hour', 60 * 60), ('minute', 60), ('second', 1)
         ]
         strings = []

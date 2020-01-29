@@ -1,24 +1,44 @@
-import sys
-if not sys.version_info > (3, 6):
-    print('Python3.6 is required to run this')
-    sys.exit(-1)
-
+from dataclasses import dataclass
 from enum import Enum
-
 from flask import jsonify, make_response
 from flask_api import status
 from zeroconf import Zeroconf
+from sys import exit, version_info
+from iputils import requestsRetrySession
+if not version_info > (3, 6):
+    print('Python3.6 is required to run this')
+    exit(-1)
 
-#
+
 # HealthCheck RFC specification
 # https://tools.ietf.org/id/draft-inadarei-api-health-check-02.html#rfc.section.3
 # https://inadarei.github.io/rfc-healthcheck/
-from iputils import requestsRetrySession
 
+@dataclass
+class MonitorValues:
+    #   Response Timeout: 5 sec (2-60sec)
+    DEFAULT_TIME_OUT: int = 5
+    MIN_TIMEOUT: int = 2
+    MAX_TIMEOUT: int = 60
+
+    #   HealthCheck Interval: 30 sec (5-300sec)
+    DEFAULT_INTERVAL: int = 30
+    MIN_INTERVAL: int = 5
+    MAX_INTERVAL: int = 300
+
+    #   Unhealthy Threshold: 2 times (2-10)
+    DEFAULT_UNHEALTHY_THRESHOLD: int = 2
+    MIN_UNHEALTHY_THRESHOLD: int = 2
+    MAX_UNHEALTHY_THRESHOLD: int = 10
+
+    #   Healthy Threshold: 10 time (2-10)
+    DEFAULT_HEALTHY_THRESHOLD: int = 10
+    MIN_HEALTHY_THRESHOLD: int = 10
+    MAX_HEALTHY_THRESHOLD: int = 10
 
 class HealthStatus(Enum):
     # For “pass” status, HTTP response code in the 2xx-3xx range MUST be used.
-    PASS = "pass"
+    PASS = "pass"  # nosec
 
     # For “warn” status, endpoints MUST return HTTP status in the 2xx-3xx range,
     # and additional information SHOULD be provided, utilizing optional fields of the response.
@@ -104,12 +124,12 @@ class HealthCheckResponse:
         self.custom("description", f"health of {app} service")
         return self
 
-    def notes(self, note: str=""):
+    def notes(self, note: str = ""):
         """Notes related to this health check"""
         self.custom("notes", note)
         return self
 
-    def details(self, details: str=""):
+    def details(self, details: str = ""):
         """Detail notes"""
         self.custom("details", details)
         return self
@@ -138,6 +158,7 @@ class HealthCheckResponse:
             'Connection': 'close',
         }
         return res
+
 
 class HealthCheckerServer:
     TYPE = "_http._tcp.local."
@@ -187,7 +208,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except:
+        except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
@@ -203,7 +224,7 @@ class HealthCheckerServer:
                 )
                 .status_code
             )
-        except:
+        except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):

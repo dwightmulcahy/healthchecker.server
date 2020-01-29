@@ -243,6 +243,8 @@ def healthCheck(appname: str):
         if appData.healthState.isHealthy():
             appData.lasthealthy = datetime.now()
     else:
+        # TODO: need to allow for a DEGRADED status code to be returned (HTTP 201 to HTTP 307)
+
         # healthcheck was not successful
         appData.healthState.unhealthyCheck()
 

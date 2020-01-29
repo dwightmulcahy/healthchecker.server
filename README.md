@@ -3,30 +3,26 @@
 </p>
 
 # Why?
-In my household I have several different devices running.  My media center sometimes will hang
-or reboot leaving it is an unuseable state.  Sometimes powers goes out and devices don't reboot 
-correctly.  My raspberry pi cluster runs a bunch of rest api endpoints that I constantly am adding 
-"features" too (sometimes called `bugs`).  This microserve will email me when something happens 
-that will involve human interaction (me).
+In my household, I have several different devices running. 
+My media center sometimes will hang or reboot, leaving it in an unusable state. 
+Sometimes the power goes out, and devices don't restart correctly. 
+My raspberry pi cluster runs a bunch of rest API endpoints that I constantly am adding "features" too 
+(sometimes called bugs) and there are errors introduced that aren't obvious immediately. 
+This microservice will email me when something happens that will involve human interaction (me).
 
 # Installation
-_**THIS CURRENTLY ISN"T AVAILABLE YET!!!**_
+_**CURRENTLY THIS ISN"T AVAILABLE YET!!!**_
 
 You can install `HealthCheck.Server` using pip:
 ```
 pip install healthcheck.server
 ```
-Currently it supports python versions 3.7+.
-
-# Healthchecker.Server
-Running this microservice will provide a findable service (via ZeroConf) that will allow programs
-and hardware to register for periodic healthchecks.  Email's can be sent when the registered 
-service degrades or goes unhealthy as defined by the registered parameters.
+Currently, `HealthCheck.Server` requires python versions 3.7+.
 
 ## Usage
 
-The following code will find and register an application for monitoring.  Emails will be sent when the status of the monitored 
-application changes.
+The following code will find and register an application for monitoring. 
+Emails will are sent when the status of the monitored application changes.
 ```python
 from healthcheck import HealthCheckerServer
 
@@ -39,43 +35,10 @@ else:
     print(f'Registered with HealthChecker at {healthCheckerServer.url()}')
 ```
 
-## HealthCheckerServer Class
+# Quick Start Example
+Here is an example of a Flask client using the HealthChecker.Server service. This example is in the `example/` directory.
 
-**Ping Path**
-The destination for the HTTP or HTTPS request.
-
-An HTTP or HTTPS GET request is issued to the instance on the ping port and the ping path. If the load balancer receives any response other than "200 OK" within the response timeout period, the instance is considered unhealthy. If the response includes a body, your application must either set the Content-Length header to a value greater than or equal to zero, or specify Transfer-Encoding with a value set to 'chunked'.
-Default: /healthcheck
-
-**Response Timeout**
-The amount of time to wait when receiving a response from the health check, in seconds.
-
-Valid values: 2 to 60
-Default: 5
-
-**HealthCheck Interval**
-The amount of time between health checks of an individual instance, in seconds.
-
-Valid values: 5 to 300
-Default: 30
-
-**Unhealthy Threshold**
-The number of consecutive failed health checks that must occur before declaring an EC2 instance unhealthy.
-
-Valid values: 2 to 10
-Default: 2
-
-**Healthy Threshold**
-The number of consecutive successful health checks that must occur before declaring an EC2 instance healthy.
-
-Valid values: 2 to 10
-Default: 10
-
-# Full Example
-Here is an example of a Flask client using the HealthChecker.Server service.  This example is located in the `example/` 
-directory.
-
-```
+```python
 import flask
 from flask_api.status import is_success
 
@@ -112,21 +75,30 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         # remove ourselves from being monitored
         healthCheckerServer.stop()
-
 ```
+
+# Healthchecker.Server
+Running this microservice will provide a findable service (via ZeroConf) that will allow programs and hardware to register for periodic health checks. Email's are sent when the registered service degrades or goes unhealthy as defined by the registered parameters.
+
+## HealthCheckerServer Class
+
+`HealthCheckerServer` class allows a client to register with the microservice to be monitored for periodic health checks.
+The client can register to be monitored using just a couple of lines of code in their application.  
+The applications `\health` endpoint will be called to internally access the applications health.  
+The endpoint should return a HTTP_200_OK to indicate HEALTHY, any other status code will be interpreted as UNHEALTY.
+The `HealthCheckResponse` class allows for a more detailed response per the HealthCheck RFC specification 
+(https://tools.ietf.org/id/draft-inadarei-api-health-check-02.html#rfc.section.3) that allows the client to returns JSON 
+data that is stored in the health check log.
 
 ## healthchecker.server configuration
 
-HealthChecker.Server can be configured via command-line, environment variables or configuration file.
-Specifying command-line or environment options will override the configuration file options. Configuration 
-file options override default options. A combination of command-line, environment variables and configuration
-file can be used.
+HealthChecker.Server can optionally be configured via command-line, environment variables, or configuration file. Specifying command-line or environment options will override the configuration file options. Configuration file options override default options. A combination of command-line, environment variables, and the configuration file can be used for configuring the server.
 
 The resolution order for any given option is: Command-Line > Environment Variables > Configuration file > Default.
 
 ### Command line options
 #### -v, --verbose
-Allows the logging to be more verbose.  Can be pretty noisy, use carefully.
+It allows the logging to be more verbose. It can be pretty noisy, use carefully.
 
 #### -t, --test
 Test mode used for development.
@@ -135,7 +107,7 @@ Test mode used for development.
 Debug mode with more logging messages generated.
 
 #### -gt, --gmail_token TEXT
-Gmail API token to use to send out email.  If not defined sending email will be disabled.
+Gmail API token to use to send out an email. If not defined, sending an email will be disabled.
 
 #### -ba, --bind_addr TEXT
 #### -p, --port INTEGER
@@ -143,13 +115,14 @@ Gmail API token to use to send out email.  If not defined sending email will be 
 #### --config FILE
 Read configuration from FILE.  FILE defaults to `./config`. 
 
-Config file supports files formatted according to Configobj’s unrepr mode (https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode).
+Read the configuration from FILE. FILE defaults to ./config.
+Config file supports files formatted according to Configobj's unrepr mode (https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode).
 
 The file should have one option per line in the form of `optionName=value`where the `optionName` is the full option name.  
 i.e. `debug=True`.
 
 #### --help
-Show options available from command line.
+Show options available from the command line.
 
 ## Health Check State Machine
 
@@ -158,64 +131,40 @@ Show options available from command line.
 </p>
 
 ## Health check parameters
+The parameters passed to `HealthCheckerServer:monitor(...)`.
 
-**Ping Protocol**
-
-The protocol to use to connect with the instance.
-
-Valid values: TCP, HTTP, HTTPS, and SSL
-
-Console default: HTTP
-
-CLI/API default: TCP
-
-**Ping Port**
-
-The port to use to connect with the instance, as a protocol:port pair. If the load balancer fails to connect with the instance at the specified port within the configured response timeout period, the instance is considered unhealthy.
-
-Ping protocols: TCP, HTTP, HTTPS, and SSL
-
-Ping port range: 1 to 65535
-
-Console default: HTTP:80
-
-CLI/API default: TCP:80
-
-**Ping Path**
-
-The destination for the HTTP or HTTPS request.
-
-An HTTP or HTTPS GET request is issued to the instance on the ping port and the ping path. If the load balancer receives any response other than "200 OK" within the response timeout period, the instance is considered unhealthy. If the response includes a body, your application must either set the Content-Length header to a value greater than or equal to zero, or specify Transfer-Encoding with a value set to 'chunked'.
-
-Default: /healthcheck
+**Health Check Path**
+-
+The destination path for the HTTP or HTTPS health check request is `/healthcheck`.
 
 **Response Timeout**
+-
+`timeout: int`
 
-The amount of time to wait when receiving a response from the health check, in seconds.
+The amount of time to wait when receiving a response from the health check in seconds.
 
-Valid values: 2 to 60
+Valid values: 2 to 60 seconds, Default: 5 seconds
 
-Default: 5
+**Interval**
+-
+`interval: int` 
 
-**HealthCheck Interval**
+The amount of time between health checks of an individual instance in seconds.
 
-The amount of time between health checks of an individual instance, in seconds.
-
-Valid values: 5 to 300
-Default: 30
+Valid values: 5 to 300 seconds, Default: 30 seconds
 
 **Unhealthy Threshold**
+-
+`unhealthy: int`
 
-The number of consecutive failed health checks that must occur before declaring an EC2 instance unhealthy.
+The number of consecutive failed health checks that must occur before declaring an instance unhealthy.
 
-Valid values: 2 to 10
-
-Default: 2
+Valid values: 2 to 10 times, Default: 2 times
 
 **Healthy Threshold**
+-
+`healthy: int`
 
-The number of consecutive successful health checks that must occur before declaring an EC2 instance healthy.
+The number of consecutive successful health checks that must occur before declaring an instance healthy.
 
-Valid values: 2 to 10
-
-Default: 10
+Valid values: 2 to 10 times, Default: 10 times

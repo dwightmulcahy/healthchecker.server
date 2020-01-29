@@ -40,9 +40,9 @@ app = flask.Flask(__name__)
 APP_NAME = "HealthChecker microservice"
 uptime = UpTime()
 
-# create background scheduler used for healthchecks
+# create background scheduler used for healthchecks, allow misfires of +1min
 logging.info("Starting scheduler.")
-sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
+sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 60})
 
 # TODO: look at adding a light db to this instead of a dict
 #  https://medium.com/@chetaniam/writing-a-simple-scheduling-service-with-apscheduler-dfbabc62e24a
@@ -148,8 +148,7 @@ def monitorRequest():
     # wrong with the app.  Possibly erroring out and restarting?
     if appname in appsMonitored:
         logging.warning(f"`{appname}` tried to reregister again.")
-        appData = appsMonitored[appname]
-        appData.healthState.unhealthyCheck()
+        appsMonitored[appname].healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
@@ -191,7 +190,7 @@ def monitorRequest():
                 appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
             )
 
-        # create a job with the above parameters
+        # create a cron job with the above parameters
         logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
         sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
 
@@ -402,7 +401,7 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
             app.run(host=bind_addr, port=port, debug=False)
         else:
             # Run the production server
-            waitress.serve(app, host=bind_addr, port=port)
+            waitress.serve(app, host=bind_addr, port=port, quiet=True)
     except (KeyboardInterrupt, SystemExit):
         logging.info('Shutting down scheduler task.')
         sched.shutdown()

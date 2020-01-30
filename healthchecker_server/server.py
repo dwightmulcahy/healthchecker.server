@@ -21,7 +21,7 @@ from click import command, option
 from click_config_file import configuration_option
 
 from healthcheck import HealthStatus, HealthCheckResponse, MonitorValues
-from healthcheck_server.statemachine import Health
+from healthchecker_server.statemachine import Health
 from utils import findFreePort, getMyIpAddr, UpTime
 from utils.iputils import requestsRetrySession
 

@@ -1,6 +1,6 @@
-from http.client import responses
 import logging
 import flask
+from http.client import responses
 from flask_api.status import is_success
 from healthcheck import HealthCheckResponse, HealthStatus, HealthCheckerServer
 from iputils import getMyIpAddr
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     logging.info("Press Ctrl+C to exit.")
     try:
         app.run(host=BIND_ADDRESS, port=PORT, debug=False)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         logging.info("Shutting down...")
         # remove ourselves from being monitored
         healthCheckerServer.stop()

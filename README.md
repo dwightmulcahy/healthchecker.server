@@ -135,13 +135,21 @@ The file should have one option per line in the form of `optionName=value`where 
 i.e. `debug=True`.
 
 #### --help
-Show options available from command line.
+Show options available from the command line.
 
-## Health Check State Machine
+### Config File options
+Setting the Configuration file options overrides the defaults.
+Configuration options are read from `FILE` which defaults to `./config`. 
+Config file supports files formatted according to Configobj's unrepr-mode specification (https://configobj.readthedocs.io/en/latest/configobj.html#unrepr-mode).
 
-<p align="center">
-  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/img/statemachine.png?raw=true" height="300"/>
-</p>
+The file should have one option per line in the form of `optionName=value`where the `optionName` is the full option name from below. 
+
+### Environment Variable options
+Setting the environment variables overrides the configuration file and default settings.
+#### DEBUG="_True|False_"
+#### GMAIL_TOKEN="_<gmail_api_token>_"
+#### BIND_ADDR="_<ip_address>_"
+#### PORT="_<port>_"
 
 ## Health check parameters
 The parameters passed to `HealthCheckerServer:monitor(...)`.

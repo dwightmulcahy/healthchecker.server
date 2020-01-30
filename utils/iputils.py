@@ -1,5 +1,6 @@
-from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
 from contextlib import closing
+from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
+
 from requests import packages, Session
 from requests.adapters import HTTPAdapter
 

@@ -17,7 +17,8 @@ class HealthCheckerServer:
         self.monitorUrl = url
         # get the HealthChecker Server info from zeroconf
         r = Zeroconf()
-        hcInfo = r.get_service_info(HealthCheckerServer.TYPE, f"{HealthCheckerServer.SERVICE_NAME}.{HealthCheckerServer.TYPE}")
+        hcInfo = r.get_service_info(HealthCheckerServer.TYPE,
+                                    f"{HealthCheckerServer.SERVICE_NAME}.{HealthCheckerServer.TYPE}")
         if hcInfo:
             # hcInfo.parsed_addresses()[0] is the IPV4 addr
             self.healthCheckerUrl = f"http://{hcInfo.parsed_addresses()[0]}:{hcInfo.port}/healthchecker/"
@@ -47,7 +48,7 @@ class HealthCheckerServer:
                     data=formDict,
                     headers={"Cache-Control": "no-cache"},
                 )
-                .status_code
+                    .status_code
             )
         except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
@@ -62,7 +63,7 @@ class HealthCheckerServer:
                     params=paramsDict,
                     headers={"Cache-Control": "no-cache"},
                 )
-                .status_code
+                    .status_code
             )
         except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
@@ -74,7 +75,7 @@ class HealthCheckerServer:
             interval: int = MonitorValues.DEFAULT_INTERVAL,
             unhealthy: int = MonitorValues.DEFAULT_UNHEALTHY_THRESHOLD,
             healthy: int = MonitorValues.DEFAULT_HEALTHY_THRESHOLD
-        ):
+    ):
         params = {
             "appname": self.appname,
             "url": self.monitorUrl,

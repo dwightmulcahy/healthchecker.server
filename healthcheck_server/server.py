@@ -1,13 +1,15 @@
 import dataclasses
 from datetime import datetime, timedelta
-import logging
 from os import path
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
-from dataclasses import dataclass, field
+from sys import exit, version_info
 from typing import List
+
 import flask
 import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
+from click import command, option
+from click_config_file import configuration_option
 from flask import request, make_response
 from flask.json import jsonify
 from flask.json import JSONEncoder
@@ -22,7 +24,7 @@ from healthcheck import HealthStatus, HealthCheckResponse, MonitorValues
 from healthcheck_server.statemachine import Health
 from utils import findFreePort, getMyIpAddr, UpTime
 from utils.iputils import requestsRetrySession
-from sys import exit, version_info
+
 if not version_info > (3, 7):
     print('Python3.7 is required to run this')
     exit(-1)
@@ -401,7 +403,7 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
             app.run(host=bind_addr, port=port, debug=False)
         else:
             # Run the production server
-            waitress.serve(app, host=bind_addr, port=port, quiet=True)
+            waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):
         logging.info('Shutting down scheduler task.')
         sched.shutdown()

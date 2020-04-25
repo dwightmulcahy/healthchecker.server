@@ -396,12 +396,12 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
 
     logging.info('running restapi server press Ctrl+C to exit.')
     try:
-        logging.getLogger('waitress').setLevel(logging.ERROR)
         if debug:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY
             app.run(host=bind_addr, port=port, debug=False)
         else:
+            logging.getLogger("waitress").setLevel(logging.ERROR)
             # Run the production server
             waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):

@@ -170,6 +170,7 @@ class HealthCheckerServer:
     def __init__(self, app: str, url: str):
         self.appname = app
         self.monitorUrl = url
+
         # get the HealthChecker Server info from zeroconf
         r = Zeroconf()
         hcInfo = r.get_service_info(HealthCheckerServer.TYPE, f"{HealthCheckerServer.SERVICE_NAME}.{HealthCheckerServer.TYPE}")
@@ -227,7 +228,12 @@ class HealthCheckerServer:
         except Exception:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def monitor(self, emailAddr: str = "", timeout: int = 5, interval: int = 30, unhealthy: int = 2, healthy: int = 10):
+    def monitor(self,
+                emailAddr: str = "",
+                timeout: int = MonitorValues.DEFAULT_TIME_OUT,
+                interval: int = MonitorValues.DEFAULT_INTERVAL,
+                unhealthy: int = MonitorValues.DEFAULT_UNHEALTHY_THRESHOLD,
+                healthy: int = MonitorValues.DEFAULT_HEALTHY_THRESHOLD):
         params = {
             "appname": self.appname,
             "url": self.monitorUrl,

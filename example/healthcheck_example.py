@@ -52,7 +52,8 @@ if __name__ == "__main__":
     logging.info(f"HealthChecker_server URL: {healthCheckerServer.url()}")
 
     # register with the HealthChecker Server that we want to be monitored
-    hcs = healthCheckerServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
+    hcs = healthCheckerServer.monitor(emailAddr="dwightmulcahy@gmail.com")
+    # hcs = healthCheckerServer.monitor(emailAddr="myEmailAddress@gmail.com", interval=10, unhealthy=2, healthy=4)
     if not is_success(hcs):
         logging.warning(f"HealthChecker microservice returned a status of {hcs} ({responses[hcs]})")
     else:

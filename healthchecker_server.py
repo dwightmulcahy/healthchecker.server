@@ -1,3 +1,4 @@
+import dataclasses
 from datetime import datetime, timedelta
 import logging
 from os import path
@@ -9,10 +10,11 @@ import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
 from flask import request, make_response
 from flask.json import jsonify
+from flask.json import JSONEncoder
 from flask_api import status
 from gmail import Message, GMailWorker, GMail  # https://github.com/paulc/gmail-sender
 from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python-zeroconf
-from validators import url, email, between, ip_address  # https://github.com/kvesteri/validators
+from validators import url, email, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
@@ -54,7 +56,8 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
     if not sendTo or not gmail:
         return
 
-    messageBody = messageBody + "\n\nEmail send by HealthChecker.Server"
+    # TODO: why is this not formatting correctly?  Newlines are not showing up.
+    messageBody = messageBody + '\n\nEmail send by HealthChecker.Server'
     if not htmlMessageBody:
         htmlMessageBody = messageBody
 
@@ -64,10 +67,10 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
         to=sendTo,
         text=messageBody,
         html=htmlMessageBody,
-        reply_to="do@notreply.com",
+        reply_to='do@notreply.com',
     )
     gmail.send(msg)
-    logging.info(f"Email sent to {sendTo}.")
+    logging.info(f'Email sent to {sendTo}.')
 
 
 # ---------------------
@@ -75,7 +78,7 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
 # ---------------------
 
 
-@app.route("/health")
+@app.route('/health')
 def health():
     logging.info(f"{APP_NAME} /health endpoint executing")
     currentDatetime = datetime.now()
@@ -89,12 +92,12 @@ def health():
         .details({
             "uptime": [
                 {
-                    "componentType": "system",
-                    "metricValue": uptime.current(),
-                    "metricUnit": "s",
-                    "stringValue": str(uptime),
-                    "status": "pass",
-                    "time": currentDatetime.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    'componentType': 'system',
+                    'metricValue': uptime.current(),
+                    'metricUnit': 's',
+                    'stringValue': str(uptime),
+                    'status': 'pass',
+                    'time': currentDatetime.strftime('%Y-%m-%dT%H:%M:%SZ'),
                 },
             ]
         })\
@@ -125,14 +128,14 @@ class AppData:
     healthchecks: List[datetime] = field(default_factory=list)
 
 
-@app.route("/healthchecker/monitor", methods=["POST"])
+@app.route('/healthchecker/monitor', methods=['POST'])
 def monitorRequest():
     # - endpoint to register an app to monitor
     global appsMonitored
 
     # check that the minimal required info is passed
-    appname = request.form["appname"]
-    monitorUrl = request.form["url"]
+    appname = request.form['appname']
+    monitorUrl = request.form['url']
     if appname is None or monitorUrl is None:
         logging.error(f"`{appname}` tried to register without the minimum parameters.")
         return make_response(
@@ -149,32 +152,30 @@ def monitorRequest():
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
-    appname = request.form["appname"]
-    monitorUrl = request.form["url"]
+    appname = request.form['appname']
+    monitorUrl = request.form['url']
     if not url(monitorUrl) and not ip_address.ipv4(monitorUrl) and not ip_address.ipv6(monitorUrl):
         return make_response(f"`{monitorUrl}` is not a valid url", status.HTTP_400_BAD_REQUEST)
 
-    emailAddr = request.form["email"]
+    emailAddr = request.form['email']
     if not email(emailAddr):
         return make_response(f"`{emailAddr}` is not a valid email", status.HTTP_400_BAD_REQUEST)
 
-    # TODO: move the defaults/min/max to healthcheck.py
-
     #   Response Timeout: 5 sec (2-60sec)
-    timeout = int(request.form["timeout"])
+    timeout = int(request.form['timeout'])
     #   HealthCheck Interval: 30 sec (5-300sec)
-    interval = int(request.form["interval"])
+    interval = int(request.form['interval'])
     #   Unhealthy Threshold: 2 times (2-10)
-    unhealthy_threshold = int(request.form["unhealthy_threshold"])
+    unhealthy_threshold = int(request.form['unhealthy_threshold'])
     #   Healthy Threshold: 10 time (2-10)
-    healthy_threshold = int(request.form["healthy_threshold"])
+    healthy_threshold = int(request.form['healthy_threshold'])
 
     # make sure the parameters are sane
     if (
-        between(timeout, min=MonitorValues.MIN_TIMEOUT, max=MonitorValues.MAX_TIMEOUT)
-        and between(interval, min=MonitorValues.MIN_INTERVAL, max=MonitorValues.MAX_INTERVAL)
-        and between(healthy_threshold, min=MonitorValues.MIN_HEALTHY_THRESHOLD, max=MonitorValues.MAX_HEALTHY_THRESHOLD)
-        and between(unhealthy_threshold, min=MonitorValues.MIN_UNHEALTHY_THRESHOLD, max=MonitorValues.MAX_UNHEALTHY_THRESHOLD)
+        MonitorValues.MIN_TIMEOUT >= timeout <= MonitorValues.MAX_TIMEOUT
+        and MonitorValues.MIN_INTERVAL >= interval <= MonitorValues.MAX_INTERVAL
+        and MonitorValues.MIN_HEALTHY_THRESHOLD >= healthy_threshold <= MonitorValues.MAX_HEALTHY_THRESHOLD
+        and MonitorValues.MIN_UNHEALTHY_THRESHOLD >= unhealthy_threshold <= MonitorValues.MAX_UNHEALTHY_THRESHOLD
     ):
         # store off the parameters for the job
         appsMonitored[appname] = AppData(
@@ -218,7 +219,6 @@ def healthCheck(appname: str):
     healthTimeout = appData.timeout
 
     # make the request to the <appUrl>/health endpoint
-    statusCode = None
     try:
         getHeaders = {
             'Content-Type': 'application/health+json',
@@ -261,11 +261,11 @@ def healthCheck(appname: str):
 @app.route("/healthchecker/stopmonitoring", methods=["GET"])
 def stopmonitoring():
     # - endpoint to deregister app “stopmonitoring?<appName>”
-    appname = request.args.get("appname")
+    appname = request.args.get('appname')
     if appname in appsMonitored:
         del appsMonitored[appname]
         sched.remove_job(appname)
-        return make_response("OK", status.HTTP_200_OK)
+        return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
             f"App `{appname}` is not health check monitored.",
@@ -273,41 +273,55 @@ def stopmonitoring():
         )
 
 
-@app.route("/healthchecker/pause", methods=["GET"])
+@app.route('/healthchecker/pause', methods=["GET"])
 def pause():
     # - endpoint to pause monitoring “pause?<appName>”
-    appname = request.args.get("appname")
+    appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.pause_job(appname)
-        return make_response("OK", status.HTTP_200_OK)
+        return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
-            f"App `{appname}` is not health check monitored.",
+            f'App `{appname}` is not health check monitored.',
             status.HTTP_400_BAD_REQUEST,
         )
 
 
-@app.route("/healthchecker/resume", methods=["GET"])
+@app.route('/healthchecker/resume', methods=['GET'])
 def resume():
     # - endpoint to resume monitoring “resume?<appName>"
-    appname = request.args.get("appname")
+    appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.resume_job(appname)
-        return make_response("OK", status.HTTP_200_OK)
+        return make_response('OK', status.HTTP_200_OK)
     else:
-        return make_response(f"App `{appname}` is not health check monitored.", status.HTTP_400_BAD_REQUEST)
+        return make_response(f'App `{appname}` is not health check monitored.', status.HTTP_400_BAD_REQUEST)
 
 
-@app.route("/healthchecker/info")
+@app.route('/healthchecker/info')
 def info():
     # show a webpage with all the apps monitored and last status
-    appname = request.args.get("appname", None)
+    appname = request.args.get('appname', None)
     if appname is None:
         return make_response("`appname` parameter not specified.", status.HTTP_400_BAD_REQUEST)
-    return make_response(jsonify(appsMonitored[appname]), status.HTTP_200_OK)
+    return make_response(jsonify(dataclasses.asdict(appsMonitored[appname])), status.HTTP_200_OK)
 
 
-@app.route("/healthchecker/status")
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Health):
+            return {
+                'emailAddr': obj.emailAddr,
+                'unhealthyChecks': obj.unhealthyChecks,
+                'healthyChecks': obj.healthyChecks,
+                'unhealthyThreshold': obj.unhealthyThreshold,
+                'healthyThreshold': obj.healthyThreshold,
+                'currentHealth': obj.state.name,
+            }
+        return JSONEncoder.default(self, obj)
+
+
+@app.route('/healthchecker/status')
 def statusPage():
     # TODO: make this an interactive page
     # show a webpage with all the apps monitored and last status
@@ -321,14 +335,14 @@ def registerService(bindAddr, port):
     # addresses = [socket.inet_aton(getMyIpAddr())]
     if has_ipv6:
         addresses.append(inet_pton(AF_INET6, "::1"))
-    logging.info(f"registering service _healthchecker._http._tcp.local. at {bindAddr}:{port}")
+    logging.info(f'registering service _healthchecker._http._tcp.local. at {bindAddr}:{port}')
     zeroConf.register_service(
         ServiceInfo(
-            "_http._tcp.local.",
-            "_healthchecker._http._tcp.local.",
+            '_http._tcp.local.',
+            '_healthchecker._http._tcp.local.',
             addresses=addresses,
             port=port,
-            properties={"version": "0.9Beta", "desc": "health check micro-service"},
+            properties={'version': '0.9Beta', 'desc': 'health check micro-service'},
         )
     )
     return zeroConf
@@ -337,37 +351,40 @@ def registerService(bindAddr, port):
 @command()
 @option('--verbose', '-v', is_flag=True)
 @option('--test', '-t', is_flag=True)
-@option('--debug', '-d', envvar="DEBUG", is_flag=True, default=False)
-@option('--gmail_token', '-gt', envvar="GMAIL_TOKEN", default='')
-@option('--bind_addr', '-ba', envvar="BIND_ADDR", default=getMyIpAddr())
-@option('--port', '-p', envvar="PORT", default=findFreePort())
+@option('--debug', '-d', envvar='DEBUG', is_flag=True, default=False)
+@option('--gmail_token', '-gt', envvar='GMAIL_TOKEN', default='')
+@option('--bind_addr', '-ba', envvar='BIND_ADDR', default=getMyIpAddr())
+@option('--port', '-p', envvar='PORT', default=findFreePort())
 @configuration_option(config_file_name=path.dirname(path.realpath(__file__)) + '/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):
     global gmail
 
-    logging.info(f"Started {APP_NAME}")
+    logging.info(f'Started {APP_NAME}')
+
+    # the custom json encoder for the AppData Object
+    app.json_encoder = CustomJSONEncoder
 
     # quiet the output from some of the libs
-    logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    logging.getLogger("requests").setLevel(logging.ERROR)
-    logging.getLogger("urllib3").setLevel(logging.ERROR)
-    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    logging.getLogger('requests').setLevel(logging.ERROR)
+    logging.getLogger('urllib3').setLevel(logging.ERROR)
+    logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
     # get environment variable for gmail server
     if gmail_token:
         logging.info(f'Gmail server enabled.')
         if debug:
-            gmail = GMail(f"{APP_NAME} <HealthChecker.Server@gmail.com>", gmail_token)
+            gmail = GMail(f'{APP_NAME} <HealthChecker.Server@gmail.com>', gmail_token)
         else:
-            gmail = GMailWorker(f"{APP_NAME} <HealthChecker.Server@gmail.com>", gmail_token)
+            gmail = GMailWorker(f'{APP_NAME} <HealthChecker.Server@gmail.com>', gmail_token)
     else:
         logging.warning('Gmail server token not defined.')
 
     # bind locally to a free port
-    logging.info(f"Bind Address: {bind_addr}:{port}")
+    logging.info(f'Bind Address: {bind_addr}:{port}')
 
     # more verbose logging when this is set and use flask webserver
-    logging.info(f"Debug set to {debug}")
+    logging.info(f'Debug set to {debug}')
 
     # start the scheduler out... nothing to do right now
     sched.start()
@@ -375,9 +392,9 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     # register this service with zeroConf
     zc = registerService(bind_addr, port)
 
-    logging.info("running restapi server press Ctrl+C to exit.")
+    logging.info('running restapi server press Ctrl+C to exit.')
     try:
-        logging.getLogger("waitress").setLevel(logging.ERROR)
+        logging.getLogger('waitress').setLevel(logging.ERROR)
         if debug:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY
@@ -386,11 +403,13 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
             # Run the production server
             waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):
-        logging.info("Shutting down scheduler task.")
+        logging.info('Shutting down scheduler task.')
         sched.shutdown()
         zc.unregister_service(logging.info)
         zc.close()
+    except (RuntimeError):
+        logging.error('RuntimeError.')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

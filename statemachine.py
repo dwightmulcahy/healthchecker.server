@@ -71,6 +71,8 @@ class Health(object):
             logging.getLogger('transitions').setLevel(logging.ERROR)
 
     def registerEmail(self, appname, emailAddr, emailCallback):
+        self.emailAddr = emailAddr
+
         # set up state on_enters to email callback
         self.machine.on_enter_DEGRADING(
             lambda: emailCallback(

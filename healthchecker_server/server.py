@@ -1,4 +1,5 @@
-import dataclasses
+from dataclasses import asdict, field, dataclass
+import logging
 from datetime import datetime, timedelta
 from os import path
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
@@ -8,8 +9,6 @@ from typing import List
 import flask
 import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
-from click import command, option
-from click_config_file import configuration_option
 from flask import request, make_response
 from flask.json import jsonify
 from flask.json import JSONEncoder
@@ -306,7 +305,7 @@ def info():
     appname = request.args.get('appname', None)
     if appname is None:
         return make_response("`appname` parameter not specified.", status.HTTP_400_BAD_REQUEST)
-    return make_response(jsonify(dataclasses.asdict(appsMonitored[appname])), status.HTTP_200_OK)
+    return make_response(jsonify(asdict(appsMonitored[appname])), status.HTTP_200_OK)
 
 
 class CustomJSONEncoder(JSONEncoder):

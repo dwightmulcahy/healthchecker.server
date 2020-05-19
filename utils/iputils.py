@@ -1,5 +1,6 @@
-from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
 from contextlib import closing
+from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
+
 from requests import packages, Session
 from requests.adapters import HTTPAdapter
 
@@ -25,6 +26,7 @@ def findFreePort():
 
 
 # This creates a session request that will retry with backoff timing.
+# idea from https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
     session = session or Session()
     retry = packages.urllib3.util.retry.Retry(

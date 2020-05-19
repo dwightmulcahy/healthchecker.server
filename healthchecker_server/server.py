@@ -1,10 +1,11 @@
-import dataclasses
-from datetime import datetime, timedelta
+from dataclasses import asdict, field, dataclass
 import logging
+from datetime import datetime, timedelta
 from os import path
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
-from dataclasses import dataclass, field
+from sys import exit, version_info
 from typing import List
+
 import flask
 import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
@@ -17,11 +18,12 @@ from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python
 from validators import url, email, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
-from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
-from iputils import findFreePort, getMyIpAddr
-from statemachine import Health
-from uptime import UpTime
-from sys import exit, version_info
+
+from healthcheck import HealthStatus, HealthCheckResponse, MonitorValues
+from healthchecker_server.statemachine import Health
+from utils import findFreePort, getMyIpAddr, UpTime
+from utils.iputils import requestsRetrySession
+
 if not version_info > (3, 7):
     print('Python3.7 is required to run this')
     exit(-1)
@@ -39,9 +41,9 @@ app = flask.Flask(__name__)
 APP_NAME = "HealthChecker microservice"
 uptime = UpTime()
 
-# create background scheduler used for healthchecks
+# create background scheduler used for healthchecks, allow misfires of +1min
 logging.info("Starting scheduler.")
-sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
+sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 60})
 
 # TODO: look at adding a light db to this instead of a dict
 #  https://medium.com/@chetaniam/writing-a-simple-scheduling-service-with-apscheduler-dfbabc62e24a
@@ -147,8 +149,7 @@ def monitorRequest():
     # wrong with the app.  Possibly erroring out and restarting?
     if appname in appsMonitored:
         logging.warning(f"`{appname}` tried to reregister again.")
-        appData = appsMonitored[appname]
-        appData.healthState.unhealthyCheck()
+        appsMonitored[appname].healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
@@ -190,7 +191,7 @@ def monitorRequest():
                 appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
             )
 
-        # create a job with the above parameters
+        # create a cron job with the above parameters
         logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
         sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
 
@@ -304,7 +305,7 @@ def info():
     appname = request.args.get('appname', None)
     if appname is None:
         return make_response("`appname` parameter not specified.", status.HTTP_400_BAD_REQUEST)
-    return make_response(jsonify(dataclasses.asdict(appsMonitored[appname])), status.HTTP_200_OK)
+    return make_response(jsonify(asdict(appsMonitored[appname])), status.HTTP_200_OK)
 
 
 class CustomJSONEncoder(JSONEncoder):
@@ -394,12 +395,12 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
 
     logging.info('running restapi server press Ctrl+C to exit.')
     try:
-        logging.getLogger('waitress').setLevel(logging.ERROR)
         if debug:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY
             app.run(host=bind_addr, port=port, debug=False)
         else:
+            logging.getLogger("waitress").setLevel(logging.ERROR)
             # Run the production server
             waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):

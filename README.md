@@ -85,7 +85,7 @@ Running this microservice will provide a findable service (via ZeroConf) that wi
 Health is determined by a state machine with states of "**UNKNOWN**", "**DEGRADED**", "**UNHEALTHY**", and "**HEALTHY**".  
 The parameters settings `unhealthy` and `healthy` determine the threshold of when to transition to the next state.
 <p align="center">
-  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/img/statemachine.png?raw=true" height="200"/>
+  <img src="https://github.com/dwightmulcahy/healthchecker.server/blob/master/img/statemachine.svg?raw=true" height="200"/>
 </p>
 
 ## HealthCheckerServer Class

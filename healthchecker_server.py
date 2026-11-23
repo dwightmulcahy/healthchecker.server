@@ -203,6 +203,8 @@ def monitorRequest():
         appData = appsMonitored[appname]
         appData.healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
+        if appStore is not None:
+            appStore.set_paused(appname, False)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
     appsMonitored[appname] = AppData(

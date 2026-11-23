@@ -149,8 +149,8 @@ class HealthCheckResponse:
         """Add structured checks to the health response.
         
         Args:
-            key: Input used by this operation.
-            value: Input used by this operation.
+            key: Field name.
+            value: Value to set in the response.
         
         Returns:
             The result of this operation.
@@ -162,8 +162,8 @@ class HealthCheckResponse:
         """Add related links to the health response.
         
         Args:
-            key: Input used by this operation.
-            value: Input used by this operation.
+            key: Field name.
+            value: Value to set in the response.
         
         Returns:
             The result of this operation.
@@ -239,8 +239,8 @@ class HealthCheckerServer:
         """Send a form request to a monitoring server endpoint.
         
         Args:
-            endpoint: Input used by this operation.
-            formDict: Input used by this operation.
+            endpoint: Relative path of the monitoring API operation.
+            formDict: Form fields to submit with the request.
         
         Returns:
             The result of this operation.
@@ -264,8 +264,8 @@ class HealthCheckerServer:
         """Send a query request to a monitoring server endpoint.
         
         Args:
-            endpoint: Input used by this operation.
-            paramsDict: Input used by this operation.
+            endpoint: Relative path of the monitoring API operation.
+            paramsDict: Query parameters to send.
         
         Returns:
             The result of this operation.
@@ -294,11 +294,11 @@ class HealthCheckerServer:
         """Register this application for recurring health checks.
         
         Args:
-            emailAddr: Input used by this operation.
-            timeout: Input used by this operation.
-            interval: Input used by this operation.
-            unhealthy: Input used by this operation.
-            healthy: Input used by this operation.
+            emailAddr: Address to receive health notifications.
+            timeout: Value passed to this API.
+            interval: Value passed to this API.
+            unhealthy: Value passed to this API.
+            healthy: Value passed to this API.
         
         Returns:
             The result of this operation.

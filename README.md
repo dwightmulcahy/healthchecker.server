@@ -84,6 +84,19 @@ restored when the server restarts. The default database file is
 persistent volume and back up this file. Registrations, thresholds, email
 addresses, and pause states are persisted; short-lived health history is not.
 
+## Interactive status page
+
+Visit `/healthchecker/status` to see monitored services, health states,
+and pause/stop controls. To enable the interactive controls, set a strong
+`HEALTHCHECK_ADMIN_TOKEN` in the server environment. The page asks for the
+token when you submit a control form; the token is not embedded in HTML.
+
+Use HTTPS via a trusted reverse proxy before entering the token: the
+historical server itself serves HTTP. When an admin token is configured,
+legacy GET control endpoints also require an `Authorization: Bearer <token>`
+header. Without a token, the page is read-only, although legacy GET control
+endpoints retain their historical behavior and must not be exposed publicly.
+
 ## Monitor parameters
 
 | Parameter | Range | Default |

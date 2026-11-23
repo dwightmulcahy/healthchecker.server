@@ -25,6 +25,22 @@ def findFreePort():
         return s.getsockname()[1]
 
 
+class IPUtil:
+    """Resolve a local address and a free port unless explicitly configured.
+
+    Args:
+        ip: IP address override, or None to detect one.
+        port: Port override, or None for an ephemeral port.
+
+    Note:
+        A discovered port can be claimed by another process before use.
+    """
+
+    def __init__(self, ip=None, port=None):
+        self.ip = getMyIpAddr() if ip is None else ip
+        self.port = findFreePort() if port is None else port
+
+
 # This creates a session request that will retry with backoff timing.
 # idea from https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):

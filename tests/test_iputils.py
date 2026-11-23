@@ -61,3 +61,29 @@ def test_retry_session_accepts_existing_session():
         assert session.get_adapter("https://example.test").max_retries.total == 2
     finally:
         session.close()
+
+
+def test_iputil_defaults_to_detected_ip_and_available_port(monkeypatch):
+    monkeypatch.setattr(iputils, "getMyIpAddr", lambda: "192.0.2.22")
+    monkeypatch.setattr(iputils, "findFreePort", lambda: 54321)
+    result = iputils.IPUtil()
+    assert result.ip == "192.0.2.22"
+    assert result.port == 54321
+
+
+def test_iputil_accepts_explicit_values(monkeypatch):
+    def unexpected():
+        raise AssertionError("automatic discovery must not run")
+
+    monkeypatch.setattr(iputils, "getMyIpAddr", unexpected)
+    monkeypatch.setattr(iputils, "findFreePort", unexpected)
+    result = iputils.IPUtil(ip="192.168.1.111", port=9090)
+    assert result.ip == "192.168.1.111"
+    assert result.port == 9090
+
+
+def test_iputil_partial_override(monkeypatch):
+    monkeypatch.setattr(iputils, "getMyIpAddr", lambda: "192.0.2.2")
+    monkeypatch.setattr(iputils, "findFreePort", lambda: 65000)
+    assert iputils.IPUtil(ip="192.0.2.4").port == 65000
+    assert iputils.IPUtil(port=8080).ip == "192.0.2.2"

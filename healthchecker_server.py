@@ -348,12 +348,12 @@ def registerService(bindAddr, port):
 
 
 @command()
-@option('--verbose', '-v', is_flag=True)
-@option('--test', '-t', is_flag=True)
-@option('--debug', '-d', envvar='DEBUG', is_flag=True, default=False)
-@option('--gmail_token', '-gt', envvar='GMAIL_TOKEN', default='')
-@option('--bind_addr', '-ba', envvar='BIND_ADDR', default=getMyIpAddr())
-@option('--port', '-p', envvar='PORT', default=findFreePort())
+@option('--verbose', '-v', is_flag=True, help='Enable detailed application logging.')
+@option('--test', '-t', is_flag=True, help='Enable the development test-mode flag.')
+@option('--debug', '-d', envvar='DEBUG', is_flag=True, default=False, help='Run the built-in Flask development server.')
+@option('--gmail_token', '-gt', envvar='GMAIL_TOKEN', default='', help='Gmail API token for health-change notifications.')
+@option('--bind_addr', '-ba', envvar='BIND_ADDR', default=getMyIpAddr(), help='IP address to bind the monitoring service to.')
+@option('--port', '-p', envvar='PORT', default=findFreePort(), type=int, help='TCP listening port (defaults to an available port).')
 @configuration_option(config_file_name=path.dirname(path.realpath(__file__)) + '/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):
     global gmail

@@ -37,7 +37,7 @@ def route():
         "sendEmail": MagicMock(),
         "healthCheck": MagicMock(),
     }
-    exec(compile(isolated_module, str(path), "exec"), env)
+    exec(compile(isolated_module, str(path), "exec"), env)  # nosec B102: fixed local test source
     return env, env["monitorRequest"]
 
 

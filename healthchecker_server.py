@@ -18,6 +18,7 @@ from validators import url, email, ip_address  # https://github.com/kvesteri/val
 from click import command, option
 from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
+from monitor_validation import validate_monitor_payload
 from iputils import findFreePort, getMyIpAddr
 from statemachine import Health
 from uptime import UpTime
@@ -130,20 +131,22 @@ class AppData:
 
 @app.route('/healthchecker/monitor', methods=['POST'])
 def monitorRequest():
-    # - endpoint to register an app to monitor
-
-    # check that the minimal required info is passed
-    appname = request.form['appname']
-    monitorUrl = request.form['url']
-    if appname is None or monitorUrl is None:
-        logging.error(f"`{appname}` tried to register without the minimum parameters.")
+    """Register a monitored application or return field-specific errors."""
+    values, errors = validate_monitor_payload(request.form, MonitorValues)
+    if errors:
         return make_response(
-            f"Invalid parameters for app `{appname}`.\nMinimal request should have `appname` and `url` defined.",
+            jsonify({"error": "invalid_monitor_parameters", "details": errors}),
             status.HTTP_400_BAD_REQUEST,
         )
 
-    # if the app is trying to register again then there probably is something
-    # wrong with the app.  Possibly erroring out and restarting?
+    appname = values["appname"]
+    monitorUrl = values["url"]
+    emailAddr = values["email"]
+    timeout = values["timeout"]
+    interval = values["interval"]
+    unhealthy_threshold = values["unhealthy_threshold"]
+    healthy_threshold = values["healthy_threshold"]
+
     if appname in appsMonitored:
         logging.warning(f"`{appname}` tried to reregister again.")
         appData = appsMonitored[appname]
@@ -151,60 +154,23 @@ def monitorRequest():
         sched.resume_job(job_id=appname)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
-    appname = request.form['appname']
-    monitorUrl = request.form['url']
-    if not url(monitorUrl) and not ip_address.ipv4(monitorUrl) and not ip_address.ipv6(monitorUrl):
-        return make_response(f"`{monitorUrl}` is not a valid url", status.HTTP_400_BAD_REQUEST)
+    appsMonitored[appname] = AppData(
+        monitorUrl, timeout, interval,
+        Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold)
+    )
 
-    emailAddr = request.form['email']
-    if not email(emailAddr):
-        return make_response(f"`{emailAddr}` is not a valid email", status.HTTP_400_BAD_REQUEST)
-
-    #   Response Timeout: 5 sec (2-60sec)
-    timeout = int(request.form['timeout'])
-    #   HealthCheck Interval: 30 sec (5-300sec)
-    interval = int(request.form['interval'])
-    #   Unhealthy Threshold: 2 times (2-10)
-    unhealthy_threshold = int(request.form['unhealthy_threshold'])
-    #   Healthy Threshold: 10 time (2-10)
-    healthy_threshold = int(request.form['healthy_threshold'])
-
-    # make sure the parameters are sane
-    if (
-        MonitorValues.MIN_TIMEOUT >= timeout <= MonitorValues.MAX_TIMEOUT
-        and MonitorValues.MIN_INTERVAL >= interval <= MonitorValues.MAX_INTERVAL
-        and MonitorValues.MIN_HEALTHY_THRESHOLD >= healthy_threshold <= MonitorValues.MAX_HEALTHY_THRESHOLD
-        and MonitorValues.MIN_UNHEALTHY_THRESHOLD >= unhealthy_threshold <= MonitorValues.MAX_UNHEALTHY_THRESHOLD
-    ):
-        # store off the parameters for the job
-        appsMonitored[appname] = AppData(
-            monitorUrl, timeout, interval,
-            Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold)
+    if emailAddr and gmail:
+        logging.info(f"Registering email for `{appname}` to {emailAddr}.")
+        appsMonitored[appname].healthState.registerEmail(
+            appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
         )
 
-        # if there is an email register it with the statemachine
-        if emailAddr and gmail:
-            logging.info(f"Registering email for `{appname}` to {emailAddr}.")
-            appsMonitored[appname].healthState.registerEmail(
-                appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
-            )
-
-        # create a job with the above parameters
-        logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
-        sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
-
-        # return request created
-        return make_response(
-            f"App `{appname}` is scheduled for health check monitoring.",
-            status.HTTP_201_CREATED,
-        )
-    else:
-        # return error processing
-        logging.error(f"`{appname}` tried to register with the invalid parameters.")
-        return make_response(
-            f"One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.",
-            status.HTTP_406_NOT_ACCEPTABLE,
-        )
+    logging.info(f"Scheduling health check job for `{appname}` at {interval} second intervals.")
+    sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
+    return make_response(
+        f"App `{appname}` is scheduled for health check monitoring.",
+        status.HTTP_201_CREATED,
+    )
 
 
 # This is the scheduled job that checks the status of the app

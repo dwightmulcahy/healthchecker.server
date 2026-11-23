@@ -34,9 +34,18 @@ python -m pip install -r requirements.txt
 python healthchecker_server.py --help
 ```
 
-The dependencies are legacy and installation alone does not guarantee
-runtime compatibility. No supported `pip install healthcheck.server`
-distribution is established by this repository.
+A buildable Python distribution is configured through `pyproject.toml`.
+Publication to PyPI has not been confirmed. To build and install locally:
+
+```sh
+python -m pip install build
+python -m build
+python -m pip install dist/*.whl
+```
+
+The package provides a `healthchecker-server` CLI command. Start with
+`healthchecker-server --help`; validate network and Gmail settings before
+production use.
 
 ## Minimal client example
 

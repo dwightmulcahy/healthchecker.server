@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
-
 import iputils
 
 
@@ -29,7 +27,7 @@ def test_get_my_ip_addr_falls_back_to_loopback(monkeypatch):
 
 def test_find_free_port_uses_ephemeral_binding(monkeypatch):
     fake = MagicMock()
-    fake.getsockname.return_value = ("0.0.0.0", 42123)
+    fake.getsockname.return_value = ("127.0.0.1", 42123)
     monkeypatch.setattr(iputils, "socket", lambda *args: fake)
 
     assert iputils.findFreePort() == 42123

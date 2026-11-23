@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from flask import jsonify, make_response
-from flask_api import status
+from http_status import status
 from zeroconf import Zeroconf
 from sys import exit, version_info
 from iputils import requestsRetrySession
@@ -35,7 +35,7 @@ class MonitorValues:
 
     #   Healthy Threshold: 10 time (2-10)
     DEFAULT_HEALTHY_THRESHOLD: int = 10
-    MIN_HEALTHY_THRESHOLD: int = 10
+    MIN_HEALTHY_THRESHOLD: int = 2
     MAX_HEALTHY_THRESHOLD: int = 10
 
 class HealthStatus(Enum):

@@ -25,3 +25,10 @@ jobs:
           --cov-branch
           --cov-report=term-missing
           --cov-fail-under=90
+      - name: Verify registration validation branch coverage
+        run: >-
+          python -m pytest -q tests/test_monitor_validation.py
+          --cov=monitor_validation
+          --cov-branch
+          --cov-report=term-missing
+          --cov-fail-under=90

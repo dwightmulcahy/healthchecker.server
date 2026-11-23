@@ -1,7 +1,7 @@
 import dataclasses
 from datetime import datetime, timedelta
 import logging
-from os import path
+from os import path, environ
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
 from dataclasses import dataclass, field
 from typing import List
@@ -19,6 +19,7 @@ from click import command, option
 from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
 from monitor_validation import validate_monitor_payload
+from monitor_store import MonitorConfig, MonitorStore
 from iputils import findFreePort, getMyIpAddr
 from statemachine import Health
 from uptime import UpTime
@@ -44,12 +45,10 @@ uptime = UpTime()
 logging.info("Starting scheduler.")
 sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
 
-# TODO: look at adding a light db to this instead of a dict
-#  https://medium.com/@chetaniam/writing-a-simple-scheduling-service-with-apscheduler-dfbabc62e24a
-
 # Dictionary of apps monitor
 appsMonitored = {}
 gmail = None
+appStore = None
 
 
 def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', emailSubject: str = ''):
@@ -118,7 +117,7 @@ def health():
                 },
             ]
         })\
-        .custom('appsMonitored', [f'{appname} ({appdata["url"]})' for appname, appdata in appsMonitored.items()])\
+        .custom('appsMonitored', [f'{appname} ({appdata.url})' for appname, appdata in appsMonitored.items()])\
         .build()
     return healthCheckResponse
 
@@ -145,11 +144,40 @@ class AppData:
 
     # statemachine
     healthState: Health = None
+    emailAddr: str = ''
 
     # health statistics
     lasthealthy: datetime = None
     lastcheck: datetime = None
     healthchecks: List[datetime] = field(default_factory=list)
+
+
+def restoreMonitors():
+    """Reconstruct saved scheduler jobs and health states after server restart."""
+    if appStore is None:
+        return
+    for config in appStore.list():
+        if config.appname in appsMonitored:
+            continue
+        state = Health(
+            unhealthyThreshold=config.unhealthy_threshold,
+            healthyThreshold=config.healthy_threshold,
+        )
+        appsMonitored[config.appname] = AppData(
+            config.url, config.timeout, config.interval, state,
+            emailAddr=config.email,
+        )
+        if config.email and gmail:
+            state.registerEmail(
+                appname=config.appname, emailAddr=config.email,
+                emailCallback=sendEmail,
+            )
+        sched.add_job(
+            lambda name=config.appname: healthCheck(name),
+            "interval", seconds=config.interval, id=config.appname,
+        )
+        if config.paused:
+            sched.pause_job(config.appname)
 
 
 @app.route('/healthchecker/monitor', methods=['POST'])
@@ -175,11 +203,14 @@ def monitorRequest():
         appData = appsMonitored[appname]
         appData.healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
+        if appStore is not None:
+            appStore.set_paused(appname, False)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
     appsMonitored[appname] = AppData(
         monitorUrl, timeout, interval,
-        Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold)
+        Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold),
+        emailAddr=emailAddr,
     )
 
     if emailAddr and gmail:
@@ -190,6 +221,9 @@ def monitorRequest():
 
     logging.info(f"Scheduling health check job for `{appname}` at {interval} second intervals.")
     sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
+    if appStore is not None:
+        appStore.upsert(MonitorConfig(appname, monitorUrl, emailAddr, timeout, interval,
+                                      unhealthy_threshold, healthy_threshold))
     return make_response(
         f"App `{appname}` is scheduled for health check monitoring.",
         status.HTTP_201_CREATED,
@@ -249,6 +283,8 @@ def healthCheck(appname: str):
                 appData.lasthealthy and (datetime.now() - appData.lasthealthy) > timedelta(days=1):
             # tell the scheduler to pause this job
             sched.pause_job(appname)
+            if appStore is not None:
+                appStore.set_paused(appname, True)
 
             sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
                       f"Monitoring for `{appname}` has been paused")
@@ -266,6 +302,8 @@ def stopmonitoring():
     if appname in appsMonitored:
         del appsMonitored[appname]
         sched.remove_job(appname)
+        if appStore is not None:
+            appStore.remove(appname)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
@@ -285,6 +323,8 @@ def pause():
     appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.pause_job(appname)
+        if appStore is not None:
+            appStore.set_paused(appname, True)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
@@ -304,6 +344,8 @@ def resume():
     appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.resume_job(appname)
+        if appStore is not None:
+            appStore.set_paused(appname, False)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(f'App `{appname}` is not health check monitored.', status.HTTP_400_BAD_REQUEST)
@@ -410,7 +452,7 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     Returns:
         The result of this operation.
     """
-    global gmail
+    global gmail, appStore
 
     logging.info(f'Started {APP_NAME}')
 
@@ -440,7 +482,12 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     logging.info(f'Debug set to {debug}')
 
     # start the scheduler out... nothing to do right now
+    appStore = MonitorStore(environ.get(
+        "HEALTHCHECK_DB_PATH",
+        path.join(path.dirname(path.realpath(__file__)), "monitors.sqlite3"),
+    ))
     sched.start()
+    restoreMonitors()
 
     # register this service with zeroConf
     zc = registerService(bind_addr, port)

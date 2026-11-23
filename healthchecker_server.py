@@ -11,11 +11,10 @@ import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
 from flask import request, make_response
 from flask.json import jsonify
-from flask.json import JSONEncoder
-from flask_api import status
+from flask.json.provider import DefaultJSONProvider
+from http_status import status
 from gmail import Message, GMailWorker, GMail  # https://github.com/paulc/gmail-sender
 from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python-zeroconf
-from validators import url, email, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
@@ -384,7 +383,7 @@ def info():
     return make_response(jsonify(dataclasses.asdict(appsMonitored[appname])), status.HTTP_200_OK)
 
 
-class CustomJSONEncoder(JSONEncoder):
+class CustomJSONProvider(DefaultJSONProvider):
     """Serialize domain objects for legacy Flask JSON responses.
     """
     def default(self, obj):
@@ -405,7 +404,7 @@ class CustomJSONEncoder(JSONEncoder):
                 'healthyThreshold': obj.healthyThreshold,
                 'currentHealth': obj.state.name,
             }
-        return JSONEncoder.default(self, obj)
+        return super().default(obj)
 
 
 @app.route('/healthchecker/status')
@@ -513,7 +512,7 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     logging.info(f'Started {APP_NAME}')
 
     # the custom json encoder for the AppData Object
-    app.json_encoder = CustomJSONEncoder
+    app.json = CustomJSONProvider(app)
 
     # quiet the output from some of the libs
     logging.getLogger('werkzeug').setLevel(logging.ERROR)

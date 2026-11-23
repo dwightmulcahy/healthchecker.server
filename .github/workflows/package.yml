@@ -1,0 +1,31 @@
+name: Packaging smoke test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Install built wheel
+        run: |
+          python -m pip install dist/*.whl
+          python -m pip check
+      - name: Verify distribution imports and CLI
+        run: |
+          cd /tmp
+          python -c "import healthcheck, healthchecker_server, monitor_store, monitor_validation, status_page, http_status"
+          healthchecker-server --help

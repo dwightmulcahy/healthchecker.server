@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "healthchecker-server"
+version = "0.1.0"
+description = "Zeroconf-discoverable health checking service and client"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Dwight Mulcahy"}]
+keywords = ["monitoring", "healthcheck", "zeroconf"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "transitions",
+    "validators",
+    "waitress",
+    "zeroconf",
+    "requests",
+    "apscheduler>=3,<4",
+    "flask>=3,<4",
+    "prettytable",
+    "gmail",
+    "click",
+    "click-config-file",
+]
+
+[project.scripts]
+healthchecker-server = "healthchecker_server:main"
+
+[project.urls]
+Repository = "https://github.com/dwightmulcahy/healthchecker.server"
+Issues = "https://github.com/dwightmulcahy/healthchecker.server/issues"
+
+[tool.setuptools]
+py-modules = [
+    "healthcheck",
+    "healthchecker_server",
+    "http_status",
+    "iputils",
+    "statemachine",
+    "uptime",
+    "monitor_validation",
+    "monitor_store",
+    "status_page",
+]

@@ -133,7 +133,6 @@ class AppData:
 @app.route('/healthchecker/monitor', methods=['POST'])
 def monitorRequest():
     # - endpoint to register an app to monitor
-    global appsMonitored
 
     # check that the minimal required info is passed
     appname = request.form['appname']

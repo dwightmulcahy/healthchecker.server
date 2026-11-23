@@ -53,6 +53,17 @@ gmail = None
 
 
 def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', emailSubject: str = ''):
+    """Send an email notification if a recipient and Gmail client exist.
+    
+    Args:
+        sendTo: Notification recipient address.
+        messageBody: Plain-text email message.
+        htmlMessageBody: Optional HTML email body.
+        emailSubject: Email subject line.
+    
+    Returns:
+        The result of this operation.
+    """
     # if there is noone to send it to or no gmail token return
     if not sendTo or not gmail:
         return
@@ -81,6 +92,11 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
 
 @app.route('/health')
 def health():
+    """Return health and uptime metadata for the monitoring server.
+    
+    Returns:
+        The result of this operation.
+    """
     logging.info(f"{APP_NAME} /health endpoint executing")
     currentDatetime = datetime.now()
 
@@ -109,12 +125,19 @@ def health():
 
 @app.route("/")
 def hello():
+    """Return a brief server identity and uptime message.
+    
+    Returns:
+        The result of this operation.
+    """
     logging.info(f"{APP_NAME} root endpoint executing")
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
 @dataclass
 class AppData:
+    """Runtime state and recent check history for a monitored application.
+    """
     # endpoint connection details
     url: str = ''
     timeout: int = MonitorValues.DEFAULT_TIME_OUT
@@ -175,6 +198,14 @@ def monitorRequest():
 
 # This is the scheduled job that checks the status of the app
 def healthCheck(appname: str):
+    """Poll a registered application and update its health state.
+    
+    Args:
+        appname: Name of the monitored application.
+    
+    Returns:
+        The result of this operation.
+    """
     # TODO: check that appname is in appsMonitored[]
 
     logging.info(f"Doing healthcheck for `{appname}`.")
@@ -225,6 +256,11 @@ def healthCheck(appname: str):
 
 @app.route("/healthchecker/stopmonitoring", methods=["GET"])
 def stopmonitoring():
+    """Remove a registered application's monitoring job.
+    
+    Returns:
+        The result of this operation.
+    """
     # - endpoint to deregister app “stopmonitoring?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -240,6 +276,11 @@ def stopmonitoring():
 
 @app.route('/healthchecker/pause', methods=["GET"])
 def pause():
+    """Pause the scheduled checks for an application.
+    
+    Returns:
+        The result of this operation.
+    """
     # - endpoint to pause monitoring “pause?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -254,6 +295,11 @@ def pause():
 
 @app.route('/healthchecker/resume', methods=['GET'])
 def resume():
+    """Resume the scheduled checks for an application.
+    
+    Returns:
+        The result of this operation.
+    """
     # - endpoint to resume monitoring “resume?<appName>"
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -265,6 +311,11 @@ def resume():
 
 @app.route('/healthchecker/info')
 def info():
+    """Return a monitored application's stored state.
+    
+    Returns:
+        The result of this operation.
+    """
     # show a webpage with all the apps monitored and last status
     appname = request.args.get('appname', None)
     if appname is None:
@@ -273,7 +324,17 @@ def info():
 
 
 class CustomJSONEncoder(JSONEncoder):
+    """Serialize domain objects for legacy Flask JSON responses.
+    """
     def default(self, obj):
+        """Serialize custom health state objects as dictionaries.
+        
+        Args:
+            obj: Object to serialize.
+        
+        Returns:
+            The result of this operation.
+        """
         if isinstance(obj, Health):
             return {
                 'emailAddr': obj.emailAddr,
@@ -288,12 +349,26 @@ class CustomJSONEncoder(JSONEncoder):
 
 @app.route('/healthchecker/status')
 def statusPage():
+    """Return the status page response.
+    
+    Returns:
+        The result of this operation.
+    """
     # TODO: make this an interactive page
     # show a webpage with all the apps monitored and last status
     return make_response(jsonify(appsMonitored), status.HTTP_501_NOT_IMPLEMENTED)
 
 
 def registerService(bindAddr, port):
+    """Announce the monitoring service over Zeroconf.
+    
+    Args:
+        bindAddr: IPv4 address to advertise for the service.
+        port: TCP listening port.
+    
+    Returns:
+        The result of this operation.
+    """
     # register the service with zeroconf so it can be found
     zeroConf = Zeroconf()
     addresses = [inet_aton(bindAddr)]
@@ -322,6 +397,19 @@ def registerService(bindAddr, port):
 @option('--port', '-p', envvar='PORT', default=findFreePort(), type=int, help='TCP listening port (defaults to an available port).')
 @configuration_option(config_file_name=path.dirname(path.realpath(__file__)) + '/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):
+    """Configure and run the monitoring server.
+    
+    Args:
+        verbose: Whether verbose logging is requested.
+        test: Whether development test mode is enabled.
+        debug: Whether to use the Flask development server.
+        gmail_token: Gmail token used for notifications.
+        bind_addr: Address on which the web server listens.
+        port: TCP listening port.
+    
+    Returns:
+        The result of this operation.
+    """
     global gmail
 
     logging.info(f'Started {APP_NAME}')

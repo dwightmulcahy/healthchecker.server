@@ -16,6 +16,8 @@ if not version_info > (3, 6):
 
 @dataclass
 class MonitorValues:
+    """Bounds and defaults for health monitoring registration.
+    """
     #   Response Timeout: 5 sec (2-60sec)
     DEFAULT_TIME_OUT: int = 5
     MIN_TIMEOUT: int = 2
@@ -37,6 +39,8 @@ class MonitorValues:
     MAX_HEALTHY_THRESHOLD: int = 10
 
 class HealthStatus(Enum):
+    """Health status values encoded in check responses.
+    """
     # For “pass” status, HTTP response code in the 2xx-3xx range MUST be used.
     PASS = "pass"  # nosec
 
@@ -98,10 +102,10 @@ class HealthCheckResponse:
 
     def output(self, value):
         """
-        ???
+        Set the optional output message included in the response.
 
-        Parameters:
-            value (string): the version specifier
+        Args:
+            value (str): Additional diagnostic output for the health check.
 
         Returns:
             HealthCheckResponse: self
@@ -142,10 +146,28 @@ class HealthCheckResponse:
     # Need to add more formatting for this
     # https://tools.ietf.org/html/draft-inadarei-api-health-check-03#section-4
     def checks(self, key: str, value: str):
+        """Add structured checks to the health response.
+        
+        Args:
+            key: Field name.
+            value: Value to set in the response.
+        
+        Returns:
+            The result of this operation.
+        """
         self.responseDict[key] = value
         return self
 
     def links(self, key: str, value: str):
+        """Add related links to the health response.
+        
+        Args:
+            key: Field name.
+            value: Value to set in the response.
+        
+        Returns:
+            The result of this operation.
+        """
         self.responseDict[key] = value
         return self
 
@@ -161,6 +183,8 @@ class HealthCheckResponse:
 
 
 class HealthCheckerServer:
+    """Discover and communicate with the health monitoring service.
+    """
     TYPE = "_http._tcp.local."
     SERVICE_NAME = "_healthchecker"
     appname = ''
@@ -185,18 +209,42 @@ class HealthCheckerServer:
         self.stop()
 
     def url(self):
+        """Return the discovered monitoring server endpoint.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.healthCheckerUrl
 
     def isAvailable(self):
+        """Return whether a monitoring server was discovered.
+        
+        Returns:
+            The result of this operation.
+        """
         return "ServiceNotFound" != self.healthCheckerUrl
 
     def status(self):
+        """Return the monitoring server's availability as an HTTP status code.
+        
+        Returns:
+            The result of this operation.
+        """
         if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         else:
             return status.HTTP_200_OK
 
     def post(self, endpoint: str, formDict):
+        """Send a form request to a monitoring server endpoint.
+        
+        Args:
+            endpoint: Relative path of the monitoring API operation.
+            formDict: Form fields to submit with the request.
+        
+        Returns:
+            The result of this operation.
+        """
         if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
@@ -213,6 +261,15 @@ class HealthCheckerServer:
             return status.HTTP_503_SERVICE_UNAVAILABLE
 
     def get(self, endpoint: str, paramsDict):
+        """Send a query request to a monitoring server endpoint.
+        
+        Args:
+            endpoint: Relative path of the monitoring API operation.
+            paramsDict: Query parameters to send.
+        
+        Returns:
+            The result of this operation.
+        """
         if self.healthCheckerUrl == "ServiceNotFound":
             return status.HTTP_503_SERVICE_UNAVAILABLE
         try:
@@ -234,6 +291,18 @@ class HealthCheckerServer:
                 interval: int = MonitorValues.DEFAULT_INTERVAL,
                 unhealthy: int = MonitorValues.DEFAULT_UNHEALTHY_THRESHOLD,
                 healthy: int = MonitorValues.DEFAULT_HEALTHY_THRESHOLD):
+        """Register this application for recurring health checks.
+        
+        Args:
+            emailAddr: Address to receive health notifications.
+            timeout: Value passed to this API.
+            interval: Value passed to this API.
+            unhealthy: Value passed to this API.
+            healthy: Value passed to this API.
+        
+        Returns:
+            The result of this operation.
+        """
         params = {
             "appname": self.appname,
             "url": self.monitorUrl,
@@ -251,13 +320,33 @@ class HealthCheckerServer:
         return self.post("monitor", formDict=params)
 
     def stop(self):
+        """Stop monitoring this application.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.get("stop", paramsDict={"appname": self.appname})
 
     def pause(self):
+        """Pause monitoring this application.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.get("pause", paramsDict={"appname": self.appname})
 
     def resume(self):
+        """Resume monitoring this application.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.get("resume", paramsDict={"appname": self.appname})
 
     def info(self):
+        """Request information for this monitored application.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.get("info", paramsDict={"appname": self.appname})

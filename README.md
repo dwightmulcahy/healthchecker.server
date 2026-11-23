@@ -75,6 +75,15 @@ The listener's default address is detected by `getMyIpAddr()`.
 `0.0.0.0`, when supplied explicitly, means all IPv4 interfaces, **not**
 localhost. Use `127.0.0.1` to restrict a listener to IPv4 loopback.
 
+## Persistent monitor registry
+
+Monitoring registrations are stored in a local SQLite database so jobs can be
+restored when the server restarts. The default database file is
+`monitors.sqlite3` alongside the server. Override it with
+`HEALTHCHECK_DB_PATH=/data/healthchecker/monitors.sqlite3`. Use a writable
+persistent volume and back up this file. Registrations, thresholds, email
+addresses, and pause states are persisted; short-lived health history is not.
+
 ## Monitor parameters
 
 | Parameter | Range | Default |

@@ -24,6 +24,23 @@ def findFreePort():
         return s.getsockname()[1]
 
 
+class IPUtil:
+    """Resolve the local IP address and select a service port.
+
+    Args:
+        ip: Explicit address, or None to detect the local address.
+        port: Explicit port, or None to reserve an available port number.
+
+    Note:
+        An automatically selected port is free at lookup time, but another
+        process may claim it before the caller binds its server.
+    """
+
+    def __init__(self, ip=None, port=None):
+        self.ip = getMyIpAddr() if ip is None else ip
+        self.port = findFreePort() if port is None else port
+
+
 # This creates a session request that will retry with backoff timing.
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
     session = session or Session()

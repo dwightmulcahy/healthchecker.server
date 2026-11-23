@@ -1,6 +1,7 @@
 import dataclasses
 from datetime import datetime, timedelta
 import logging
+from hmac import compare_digest
 from os import path, environ
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ from click_config_file import configuration_option
 from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
 from monitor_validation import validate_monitor_payload
 from monitor_store import MonitorConfig, MonitorStore
+from status_page import render_status_page, apply_monitor_action
 from iputils import findFreePort, getMyIpAddr
 from statemachine import Health
 from uptime import UpTime
@@ -290,6 +292,14 @@ def healthCheck(appname: str):
                       f"Monitoring for `{appname}` has been paused")
 
 
+def _control_authorized():
+    """Require a bearer token for legacy GET controls when configured."""
+    token = environ.get("HEALTHCHECK_ADMIN_TOKEN", "")
+    return not token or compare_digest(
+        request.headers.get("Authorization", ""), "Bearer " + token
+    )
+
+
 @app.route("/healthchecker/stopmonitoring", methods=["GET"])
 def stopmonitoring():
     """Remove a registered application's monitoring job.
@@ -297,6 +307,9 @@ def stopmonitoring():
     Returns:
         The result of this operation.
     """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to deregister app “stopmonitoring?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -319,6 +332,9 @@ def pause():
     Returns:
         The result of this operation.
     """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to pause monitoring “pause?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -340,6 +356,9 @@ def resume():
     Returns:
         The result of this operation.
     """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to resume monitoring “resume?<appName>"
     appname = request.args.get('appname')
     if appname in appsMonitored:
@@ -391,14 +410,51 @@ class CustomJSONEncoder(JSONEncoder):
 
 @app.route('/healthchecker/status')
 def statusPage():
-    """Return the status page response.
-    
-    Returns:
-        The result of this operation.
-    """
-    # TODO: make this an interactive page
-    # show a webpage with all the apps monitored and last status
-    return make_response(jsonify(appsMonitored), status.HTTP_501_NOT_IMPLEMENTED)
+    """Display the current monitoring state and interactive admin controls."""
+    rows = []
+    for appname, data in sorted(appsMonitored.items()):
+        job = sched.get_job(appname)
+        paused = job is not None and getattr(job, "next_run_time", None) is None
+        state = getattr(getattr(data.healthState, "state", None), "name", "UNKNOWN")
+        rows.append({
+            "name": appname, "url": data.url,
+            "state": state, "paused": paused,
+        })
+    html = render_status_page(
+        rows, controls_enabled=bool(environ.get("HEALTHCHECK_ADMIN_TOKEN"))
+    )
+    response = make_response(html, status.HTTP_200_OK)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'unsafe-inline'; "
+        "form-action 'self'; base-uri 'none'"
+    )
+    return response
+
+
+@app.route('/healthchecker/control', methods=['POST'])
+def controlRequest():
+    """Execute authenticated pause, resume, or stop controls from the status page."""
+    token = environ.get("HEALTHCHECK_ADMIN_TOKEN", "")
+    if not token:
+        return make_response("Admin controls are disabled.", status.HTTP_503_SERVICE_UNAVAILABLE)
+    supplied = request.form.get("token", "")
+    if not compare_digest(supplied, token):
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+    name = request.form.get("appname", "")
+    action = request.form.get("action", "")
+    try:
+        apply_monitor_action(action, name, appsMonitored, sched, appStore)
+    except ValueError:
+        return make_response("Invalid action.", status.HTTP_400_BAD_REQUEST)
+    except KeyError:
+        return make_response("Application not found.", status.HTTP_404_NOT_FOUND)
+    response = make_response("", status.HTTP_303_SEE_OTHER)
+    response.headers["Location"] = "/healthchecker/status"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 
 def registerService(bindAddr, port):

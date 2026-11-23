@@ -1,11 +1,15 @@
-from contextlib import closing
 from socket import SOL_SOCKET, SOCK_STREAM, SO_REUSEADDR, socket, AF_INET, SOCK_DGRAM
-
+from contextlib import closing
 from requests import packages, Session
 from requests.adapters import HTTPAdapter
 
 
 def getMyIpAddr():
+    """Determine a usable local IPv4 address, falling back to loopback.
+    
+    Returns:
+        The result of this operation.
+    """
     s = socket(AF_INET, SOCK_DGRAM)
     try:
         # google DNS should be ping-able
@@ -19,6 +23,11 @@ def getMyIpAddr():
 
 
 def findFreePort():
+    """Look up a currently available TCP port.
+    
+    Returns:
+        The result of this operation.
+    """
     with closing(socket(AF_INET, SOCK_STREAM)) as s:
         s.bind(('', 0))
         s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -26,14 +35,15 @@ def findFreePort():
 
 
 class IPUtil:
-    """Resolve a local address and a free port unless explicitly configured.
+    """Resolve the local IP address and select a service port.
 
     Args:
-        ip: IP address override, or None to detect one.
-        port: Port override, or None for an ephemeral port.
+        ip: Explicit address, or None to detect the local address.
+        port: Explicit port, or None to reserve an available port number.
 
     Note:
-        A discovered port can be claimed by another process before use.
+        An automatically selected port is free at lookup time, but another
+        process may claim it before the caller binds its server.
     """
 
     def __init__(self, ip=None, port=None):
@@ -42,8 +52,18 @@ class IPUtil:
 
 
 # This creates a session request that will retry with backoff timing.
-# idea from https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
+    """Configure HTTP and HTTPS adapters with retry behavior.
+    
+    Args:
+        retries: Maximum retry attempts.
+        backoff_factor: Multiplier controlling retry backoff.
+        status_forcelist: HTTP status codes that trigger a retry.
+        session: Optional existing requests session to configure.
+    
+    Returns:
+        The result of this operation.
+    """
     session = session or Session()
     retry = packages.urllib3.util.retry.Retry(
         total=retries,

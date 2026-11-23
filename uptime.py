@@ -2,6 +2,8 @@ from datetime import datetime
 
 
 class UpTime:
+    """Measure elapsed time since an object was constructed.
+    """
     def __init__(self):
         self.startDatetime = datetime.now()
 
@@ -9,12 +11,25 @@ class UpTime:
         return self.__str__()
 
     def current(self):
+        """Return the elapsed uptime in seconds.
+        
+        Returns:
+            The result of this operation.
+        """
         return (datetime.now() - self.startDatetime).total_seconds()
 
     def __str__(self):
         return self.timetostring(self.current())
 
     def timetostring(self, time):
+        """Format an elapsed duration as a readable string.
+        
+        Args:
+            time: Elapsed time in seconds.
+        
+        Returns:
+            The result of this operation.
+        """
         seconds = int(time)
         periods = [
             ('year', 60 * 60 * 24 * 365), ('month', 60 * 60 * 24 * 30),

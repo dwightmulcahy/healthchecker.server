@@ -2,3 +2,6 @@
 .idea/
 __pycache__/
 venv/
+
+monitors.sqlite3
+monitors.sqlite3-*

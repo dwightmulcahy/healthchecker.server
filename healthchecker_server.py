@@ -1,11 +1,11 @@
-from dataclasses import asdict, field, dataclass
-import logging
+import dataclasses
 from datetime import datetime, timedelta
-from os import path
+import logging
+from hmac import compare_digest
+from os import path, environ
 from socket import inet_pton, has_ipv6, AF_INET6, inet_aton
-from sys import exit, version_info
+from dataclasses import dataclass, field
 from typing import List
-
 import flask
 import waitress  # https://github.com/Pylons/waitress
 from apscheduler.schedulers.background import BackgroundScheduler  # https://github.com/agronholm/apscheduler
@@ -18,12 +18,14 @@ from zeroconf import Zeroconf, ServiceInfo  # https://github.com/jstasiak/python
 from validators import url, email, ip_address  # https://github.com/kvesteri/validators
 from click import command, option
 from click_config_file import configuration_option
-
-from healthcheck import HealthStatus, HealthCheckResponse, MonitorValues
-from healthchecker_server.statemachine import Health
-from utils import findFreePort, getMyIpAddr, UpTime
-from utils.iputils import requestsRetrySession
-
+from healthcheck import requestsRetrySession, HealthCheckResponse, HealthStatus, MonitorValues
+from monitor_validation import validate_monitor_payload
+from monitor_store import MonitorConfig, MonitorStore
+from status_page import render_status_page, apply_monitor_action
+from iputils import findFreePort, getMyIpAddr
+from statemachine import Health
+from uptime import UpTime
+from sys import exit, version_info
 if not version_info > (3, 7):
     print('Python3.7 is required to run this')
     exit(-1)
@@ -41,19 +43,28 @@ app = flask.Flask(__name__)
 APP_NAME = "HealthChecker microservice"
 uptime = UpTime()
 
-# create background scheduler used for healthchecks, allow misfires of +1min
+# create background scheduler used for healthchecks
 logging.info("Starting scheduler.")
-sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 60})
-
-# TODO: look at adding a light db to this instead of a dict
-#  https://medium.com/@chetaniam/writing-a-simple-scheduling-service-with-apscheduler-dfbabc62e24a
+sched = BackgroundScheduler(job_defaults={'misfire_grace_time': 15*60})
 
 # Dictionary of apps monitor
 appsMonitored = {}
 gmail = None
+appStore = None
 
 
 def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', emailSubject: str = ''):
+    """Send an email notification if a recipient and Gmail client exist.
+    
+    Args:
+        sendTo: Notification recipient address.
+        messageBody: Plain-text email message.
+        htmlMessageBody: Optional HTML email body.
+        emailSubject: Email subject line.
+    
+    Returns:
+        The result of this operation.
+    """
     # if there is noone to send it to or no gmail token return
     if not sendTo or not gmail:
         return
@@ -82,6 +93,11 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
 
 @app.route('/health')
 def health():
+    """Return health and uptime metadata for the monitoring server.
+    
+    Returns:
+        The result of this operation.
+    """
     logging.info(f"{APP_NAME} /health endpoint executing")
     currentDatetime = datetime.now()
 
@@ -103,19 +119,26 @@ def health():
                 },
             ]
         })\
-        .custom('appsMonitored', [f'{appname} ({appdata["url"]})' for appname, appdata in appsMonitored.items()])\
+        .custom('appsMonitored', [f'{appname} ({appdata.url})' for appname, appdata in appsMonitored.items()])\
         .build()
     return healthCheckResponse
 
 
 @app.route("/")
 def hello():
+    """Return a brief server identity and uptime message.
+    
+    Returns:
+        The result of this operation.
+    """
     logging.info(f"{APP_NAME} root endpoint executing")
     return f"{APP_NAME} uptime: " + str(uptime)
 
 
 @dataclass
 class AppData:
+    """Runtime state and recent check history for a monitored application.
+    """
     # endpoint connection details
     url: str = ''
     timeout: int = MonitorValues.DEFAULT_TIME_OUT
@@ -123,6 +146,7 @@ class AppData:
 
     # statemachine
     healthState: Health = None
+    emailAddr: str = ''
 
     # health statistics
     lasthealthy: datetime = None
@@ -130,86 +154,94 @@ class AppData:
     healthchecks: List[datetime] = field(default_factory=list)
 
 
+def restoreMonitors():
+    """Reconstruct saved scheduler jobs and health states after server restart."""
+    if appStore is None:
+        return
+    for config in appStore.list():
+        if config.appname in appsMonitored:
+            continue
+        state = Health(
+            unhealthyThreshold=config.unhealthy_threshold,
+            healthyThreshold=config.healthy_threshold,
+        )
+        appsMonitored[config.appname] = AppData(
+            config.url, config.timeout, config.interval, state,
+            emailAddr=config.email,
+        )
+        if config.email and gmail:
+            state.registerEmail(
+                appname=config.appname, emailAddr=config.email,
+                emailCallback=sendEmail,
+            )
+        sched.add_job(
+            lambda name=config.appname: healthCheck(name),
+            "interval", seconds=config.interval, id=config.appname,
+        )
+        if config.paused:
+            sched.pause_job(config.appname)
+
+
 @app.route('/healthchecker/monitor', methods=['POST'])
 def monitorRequest():
-    # - endpoint to register an app to monitor
-
-    # check that the minimal required info is passed
-    appname = request.form['appname']
-    monitorUrl = request.form['url']
-    if appname is None or monitorUrl is None:
-        logging.error(f"`{appname}` tried to register without the minimum parameters.")
+    """Register a monitored application or return field-specific errors."""
+    values, errors = validate_monitor_payload(request.form, MonitorValues)
+    if errors:
         return make_response(
-            f"Invalid parameters for app `{appname}`.\nMinimal request should have `appname` and `url` defined.",
+            jsonify({"error": "invalid_monitor_parameters", "details": errors}),
             status.HTTP_400_BAD_REQUEST,
         )
 
-    # if the app is trying to register again then there probably is something
-    # wrong with the app.  Possibly erroring out and restarting?
+    appname = values["appname"]
+    monitorUrl = values["url"]
+    emailAddr = values["email"]
+    timeout = values["timeout"]
+    interval = values["interval"]
+    unhealthy_threshold = values["unhealthy_threshold"]
+    healthy_threshold = values["healthy_threshold"]
+
     if appname in appsMonitored:
         logging.warning(f"`{appname}` tried to reregister again.")
-        appsMonitored[appname].healthState.unhealthyCheck()
+        appData = appsMonitored[appname]
+        appData.healthState.unhealthyCheck()
         sched.resume_job(job_id=appname)
+        if appStore is not None:
+            appStore.set_paused(appname, False)
         return make_response(f"`{appname}` is already being monitored", status.HTTP_302_FOUND)
 
-    appname = request.form['appname']
-    monitorUrl = request.form['url']
-    if not url(monitorUrl) and not ip_address.ipv4(monitorUrl) and not ip_address.ipv6(monitorUrl):
-        return make_response(f"`{monitorUrl}` is not a valid url", status.HTTP_400_BAD_REQUEST)
+    appsMonitored[appname] = AppData(
+        monitorUrl, timeout, interval,
+        Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold),
+        emailAddr=emailAddr,
+    )
 
-    emailAddr = request.form['email']
-    if not email(emailAddr):
-        return make_response(f"`{emailAddr}` is not a valid email", status.HTTP_400_BAD_REQUEST)
-
-    #   Response Timeout: 5 sec (2-60sec)
-    timeout = int(request.form['timeout'])
-    #   HealthCheck Interval: 30 sec (5-300sec)
-    interval = int(request.form['interval'])
-    #   Unhealthy Threshold: 2 times (2-10)
-    unhealthy_threshold = int(request.form['unhealthy_threshold'])
-    #   Healthy Threshold: 10 time (2-10)
-    healthy_threshold = int(request.form['healthy_threshold'])
-
-    # make sure the parameters are sane
-    if (
-        MonitorValues.MIN_TIMEOUT >= timeout <= MonitorValues.MAX_TIMEOUT
-        and MonitorValues.MIN_INTERVAL >= interval <= MonitorValues.MAX_INTERVAL
-        and MonitorValues.MIN_HEALTHY_THRESHOLD >= healthy_threshold <= MonitorValues.MAX_HEALTHY_THRESHOLD
-        and MonitorValues.MIN_UNHEALTHY_THRESHOLD >= unhealthy_threshold <= MonitorValues.MAX_UNHEALTHY_THRESHOLD
-    ):
-        # store off the parameters for the job
-        appsMonitored[appname] = AppData(
-            monitorUrl, timeout, interval,
-            Health(unhealthyThreshold=unhealthy_threshold, healthyThreshold=healthy_threshold)
+    if emailAddr and gmail:
+        logging.info(f"Registering email for `{appname}` to {emailAddr}.")
+        appsMonitored[appname].healthState.registerEmail(
+            appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
         )
 
-        # if there is an email register it with the statemachine
-        if emailAddr and gmail:
-            logging.info(f"Registering email for `{appname}` to {emailAddr}.")
-            appsMonitored[appname].healthState.registerEmail(
-                appname=appname, emailAddr=emailAddr, emailCallback=sendEmail
-            )
-
-        # create a cron job with the above parameters
-        logging.info(f"Scheduling health check job for `{appname}` to {monitorUrl} at {interval} seconds intervals.")
-        sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
-
-        # return request created
-        return make_response(
-            f"App `{appname}` is scheduled for health check monitoring.",
-            status.HTTP_201_CREATED,
-        )
-    else:
-        # return error processing
-        logging.error(f"`{appname}` tried to register with the invalid parameters.")
-        return make_response(
-            f"One or more parameters for app `{appname}` out of range.\nPlease refer to docs for valid parameter ranges.",
-            status.HTTP_406_NOT_ACCEPTABLE,
-        )
+    logging.info(f"Scheduling health check job for `{appname}` at {interval} second intervals.")
+    sched.add_job(lambda: healthCheck(appname), "interval", seconds=interval, id=appname)
+    if appStore is not None:
+        appStore.upsert(MonitorConfig(appname, monitorUrl, emailAddr, timeout, interval,
+                                      unhealthy_threshold, healthy_threshold))
+    return make_response(
+        f"App `{appname}` is scheduled for health check monitoring.",
+        status.HTTP_201_CREATED,
+    )
 
 
 # This is the scheduled job that checks the status of the app
 def healthCheck(appname: str):
+    """Poll a registered application and update its health state.
+    
+    Args:
+        appname: Name of the monitored application.
+    
+    Returns:
+        The result of this operation.
+    """
     # TODO: check that appname is in appsMonitored[]
 
     logging.info(f"Doing healthcheck for `{appname}`.")
@@ -253,18 +285,38 @@ def healthCheck(appname: str):
                 appData.lasthealthy and (datetime.now() - appData.lasthealthy) > timedelta(days=1):
             # tell the scheduler to pause this job
             sched.pause_job(appname)
+            if appStore is not None:
+                appStore.set_paused(appname, True)
 
             sendEmail(appData.emailAddr, f'Last healthy check: {appData.lasthealthy}', '',
                       f"Monitoring for `{appname}` has been paused")
 
 
+def _control_authorized():
+    """Require a bearer token for legacy GET controls when configured."""
+    token = environ.get("HEALTHCHECK_ADMIN_TOKEN", "")
+    return not token or compare_digest(
+        request.headers.get("Authorization", ""), "Bearer " + token
+    )
+
+
 @app.route("/healthchecker/stopmonitoring", methods=["GET"])
 def stopmonitoring():
+    """Remove a registered application's monitoring job.
+    
+    Returns:
+        The result of this operation.
+    """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to deregister app “stopmonitoring?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
         del appsMonitored[appname]
         sched.remove_job(appname)
+        if appStore is not None:
+            appStore.remove(appname)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
@@ -275,10 +327,20 @@ def stopmonitoring():
 
 @app.route('/healthchecker/pause', methods=["GET"])
 def pause():
+    """Pause the scheduled checks for an application.
+    
+    Returns:
+        The result of this operation.
+    """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to pause monitoring “pause?<appName>”
     appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.pause_job(appname)
+        if appStore is not None:
+            appStore.set_paused(appname, True)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(
@@ -289,10 +351,20 @@ def pause():
 
 @app.route('/healthchecker/resume', methods=['GET'])
 def resume():
+    """Resume the scheduled checks for an application.
+    
+    Returns:
+        The result of this operation.
+    """
+    if not _control_authorized():
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+
     # - endpoint to resume monitoring “resume?<appName>"
     appname = request.args.get('appname')
     if appname in appsMonitored:
         sched.resume_job(appname)
+        if appStore is not None:
+            appStore.set_paused(appname, False)
         return make_response('OK', status.HTTP_200_OK)
     else:
         return make_response(f'App `{appname}` is not health check monitored.', status.HTTP_400_BAD_REQUEST)
@@ -300,15 +372,30 @@ def resume():
 
 @app.route('/healthchecker/info')
 def info():
+    """Return a monitored application's stored state.
+    
+    Returns:
+        The result of this operation.
+    """
     # show a webpage with all the apps monitored and last status
     appname = request.args.get('appname', None)
     if appname is None:
         return make_response("`appname` parameter not specified.", status.HTTP_400_BAD_REQUEST)
-    return make_response(jsonify(asdict(appsMonitored[appname])), status.HTTP_200_OK)
+    return make_response(jsonify(dataclasses.asdict(appsMonitored[appname])), status.HTTP_200_OK)
 
 
 class CustomJSONEncoder(JSONEncoder):
+    """Serialize domain objects for legacy Flask JSON responses.
+    """
     def default(self, obj):
+        """Serialize custom health state objects as dictionaries.
+        
+        Args:
+            obj: Object to serialize.
+        
+        Returns:
+            The result of this operation.
+        """
         if isinstance(obj, Health):
             return {
                 'emailAddr': obj.emailAddr,
@@ -323,12 +410,63 @@ class CustomJSONEncoder(JSONEncoder):
 
 @app.route('/healthchecker/status')
 def statusPage():
-    # TODO: make this an interactive page
-    # show a webpage with all the apps monitored and last status
-    return make_response(jsonify(appsMonitored), status.HTTP_501_NOT_IMPLEMENTED)
+    """Display the current monitoring state and interactive admin controls."""
+    rows = []
+    for appname, data in sorted(appsMonitored.items()):
+        job = sched.get_job(appname)
+        paused = job is not None and getattr(job, "next_run_time", None) is None
+        state = getattr(getattr(data.healthState, "state", None), "name", "UNKNOWN")
+        rows.append({
+            "name": appname, "url": data.url,
+            "state": state, "paused": paused,
+        })
+    html = render_status_page(
+        rows, controls_enabled=bool(environ.get("HEALTHCHECK_ADMIN_TOKEN"))
+    )
+    response = make_response(html, status.HTTP_200_OK)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'unsafe-inline'; "
+        "form-action 'self'; base-uri 'none'"
+    )
+    return response
+
+
+@app.route('/healthchecker/control', methods=['POST'])
+def controlRequest():
+    """Execute authenticated pause, resume, or stop controls from the status page."""
+    token = environ.get("HEALTHCHECK_ADMIN_TOKEN", "")
+    if not token:
+        return make_response("Admin controls are disabled.", status.HTTP_503_SERVICE_UNAVAILABLE)
+    supplied = request.form.get("token", "")
+    if not compare_digest(supplied, token):
+        return make_response("Unauthorized.", status.HTTP_403_FORBIDDEN)
+    name = request.form.get("appname", "")
+    action = request.form.get("action", "")
+    try:
+        apply_monitor_action(action, name, appsMonitored, sched, appStore)
+    except ValueError:
+        return make_response("Invalid action.", status.HTTP_400_BAD_REQUEST)
+    except KeyError:
+        return make_response("Application not found.", status.HTTP_404_NOT_FOUND)
+    response = make_response("", status.HTTP_303_SEE_OTHER)
+    response.headers["Location"] = "/healthchecker/status"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 
 def registerService(bindAddr, port):
+    """Announce the monitoring service over Zeroconf.
+    
+    Args:
+        bindAddr: IPv4 address to advertise for the service.
+        port: TCP listening port.
+    
+    Returns:
+        The result of this operation.
+    """
     # register the service with zeroconf so it can be found
     zeroConf = Zeroconf()
     addresses = [inet_aton(bindAddr)]
@@ -349,15 +487,28 @@ def registerService(bindAddr, port):
 
 
 @command()
-@option('--verbose', '-v', is_flag=True)
-@option('--test', '-t', is_flag=True)
-@option('--debug', '-d', envvar='DEBUG', is_flag=True, default=False)
-@option('--gmail_token', '-gt', envvar='GMAIL_TOKEN', default='')
-@option('--bind_addr', '-ba', envvar='BIND_ADDR', default=getMyIpAddr())
-@option('--port', '-p', envvar='PORT', default=findFreePort())
+@option('--verbose', '-v', is_flag=True, help='Enable detailed application logging.')
+@option('--test', '-t', is_flag=True, help='Enable the development test-mode flag.')
+@option('--debug', '-d', envvar='DEBUG', is_flag=True, default=False, help='Run the built-in Flask development server.')
+@option('--gmail_token', '-gt', envvar='GMAIL_TOKEN', default='', help='Gmail API token for health-change notifications.')
+@option('--bind_addr', '-ba', envvar='BIND_ADDR', default=getMyIpAddr(), help='IP address to bind the monitoring service to.')
+@option('--port', '-p', envvar='PORT', default=findFreePort(), type=int, help='TCP listening port (defaults to an available port).')
 @configuration_option(config_file_name=path.dirname(path.realpath(__file__)) + '/config')
 def main(verbose, test, debug, gmail_token, bind_addr, port):
-    global gmail
+    """Configure and run the monitoring server.
+    
+    Args:
+        verbose: Whether verbose logging is requested.
+        test: Whether development test mode is enabled.
+        debug: Whether to use the Flask development server.
+        gmail_token: Gmail token used for notifications.
+        bind_addr: Address on which the web server listens.
+        port: TCP listening port.
+    
+    Returns:
+        The result of this operation.
+    """
+    global gmail, appStore
 
     logging.info(f'Started {APP_NAME}')
 
@@ -387,19 +538,24 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     logging.info(f'Debug set to {debug}')
 
     # start the scheduler out... nothing to do right now
+    appStore = MonitorStore(environ.get(
+        "HEALTHCHECK_DB_PATH",
+        path.join(path.dirname(path.realpath(__file__)), "monitors.sqlite3"),
+    ))
     sched.start()
+    restoreMonitors()
 
     # register this service with zeroConf
     zc = registerService(bind_addr, port)
 
     logging.info('running restapi server press Ctrl+C to exit.')
     try:
+        logging.getLogger('waitress').setLevel(logging.ERROR)
         if debug:
             # run the built-in flask server
             # FOR DEVELOPMENT/DEBUGGING ONLY
             app.run(host=bind_addr, port=port, debug=False)
         else:
-            logging.getLogger("waitress").setLevel(logging.ERROR)
             # Run the production server
             waitress.serve(app, host=bind_addr, port=port)
     except (KeyboardInterrupt, SystemExit):

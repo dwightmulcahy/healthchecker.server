@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from utils import iputils
+import iputils
 
 
 def test_get_my_ip_addr_uses_socket_address(monkeypatch):

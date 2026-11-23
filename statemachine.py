@@ -7,7 +7,11 @@ from transitions import Machine
 
 
 class Health(object):
+    """Track transitions between monitoring health states.
+    """
     class States(enum.Enum):
+        """Available states in the monitoring state machine.
+        """
         UNKNOWN = 0
         HEALTHY = 1
         DEGRADING = 2
@@ -71,6 +75,16 @@ class Health(object):
             logging.getLogger('transitions').setLevel(logging.ERROR)
 
     def registerEmail(self, appname, emailAddr, emailCallback):
+        """Install the callback used for health transition notifications.
+        
+        Args:
+            appname: Name of the monitored application.
+            emailAddr: Address to receive health notifications.
+            emailCallback: Callable invoked when a state transition requires notification.
+        
+        Returns:
+            The result of this operation.
+        """
         self.emailAddr = emailAddr
 
         # set up state on_enters to email callback
@@ -97,22 +111,47 @@ class Health(object):
         )
 
     def incrementUnhealthy(self):
+        """Record an unsuccessful health check.
+        
+        Returns:
+            The result of this operation.
+        """
         self.unhealthyChecks += 1 if not self.isUnhealthy() else 0
         if self.isUnhealthy():
             self.healthyChecks = 0
 
     def incrementHealthy(self):
+        """Record a successful health check.
+        
+        Returns:
+            The result of this operation.
+        """
         self.healthyChecks += 1 if not self.isHealthy() else 0
         if self.isHealthy():
             self.unhealthyChecks = 0
 
     def isUnhealthy(self):
+        """Return whether the monitor is currently unhealthy.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.unhealthyChecks >= self.unhealthyThreshold
 
     def isDegrading(self):
+        """Return whether the monitor is currently degrading.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.unhealthyChecks >= 2
 
     def isHealthy(self):
+        """Return whether the monitor is currently healthy.
+        
+        Returns:
+            The result of this operation.
+        """
         return self.healthyChecks >= self.healthyThreshold
 
 

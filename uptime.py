@@ -25,7 +25,7 @@ class UpTime:
         """Format an elapsed duration as a readable string.
         
         Args:
-            time: Input used by this operation.
+            time: Elapsed time in seconds.
         
         Returns:
             The result of this operation.

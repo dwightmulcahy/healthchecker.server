@@ -56,10 +56,10 @@ def sendEmail(sendTo: str, messageBody: str = '', htmlMessageBody: str = '', ema
     """Send an email notification if a recipient and Gmail client exist.
     
     Args:
-        sendTo: Input used by this operation.
-        messageBody: Input used by this operation.
-        htmlMessageBody: Input used by this operation.
-        emailSubject: Input used by this operation.
+        sendTo: Notification recipient address.
+        messageBody: Plain-text email message.
+        htmlMessageBody: Optional HTML email body.
+        emailSubject: Email subject line.
     
     Returns:
         The result of this operation.
@@ -201,7 +201,7 @@ def healthCheck(appname: str):
     """Poll a registered application and update its health state.
     
     Args:
-        appname: Input used by this operation.
+        appname: Name of the monitored application.
     
     Returns:
         The result of this operation.
@@ -330,7 +330,7 @@ class CustomJSONEncoder(JSONEncoder):
         """Serialize custom health state objects as dictionaries.
         
         Args:
-            obj: Input used by this operation.
+            obj: Object to serialize.
         
         Returns:
             The result of this operation.
@@ -363,8 +363,8 @@ def registerService(bindAddr, port):
     """Announce the monitoring service over Zeroconf.
     
     Args:
-        bindAddr: Input used by this operation.
-        port: Input used by this operation.
+        bindAddr: IPv4 address to advertise for the service.
+        port: TCP listening port.
     
     Returns:
         The result of this operation.
@@ -400,12 +400,12 @@ def main(verbose, test, debug, gmail_token, bind_addr, port):
     """Configure and run the monitoring server.
     
     Args:
-        verbose: Input used by this operation.
-        test: Input used by this operation.
-        debug: Input used by this operation.
-        gmail_token: Input used by this operation.
-        bind_addr: Input used by this operation.
-        port: Input used by this operation.
+        verbose: Whether verbose logging is requested.
+        test: Whether development test mode is enabled.
+        debug: Whether to use the Flask development server.
+        gmail_token: Gmail token used for notifications.
+        bind_addr: Address on which the web server listens.
+        port: TCP listening port.
     
     Returns:
         The result of this operation.

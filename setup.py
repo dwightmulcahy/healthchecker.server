@@ -1,25 +1,40 @@
-from distutils.core import setup
+"""Distribution metadata for HealthChecker.Server."""
+
+from setuptools import find_packages, setup
+
 setup(
-  name = 'HealthChecker_Server',         # How you named your package folder (MyLib)
-  packages = ['HealthChecker_Server'],   # Chose the same as "name"
-  version = '0.1.0',      # Start with a small number and increase it with every change you make
-  license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
-  description = 'A HealthChecker Server',   # Give a short description about your library
-  author = 'dWiGhT Mulcahy',                   # Type in your name
-  author_email = 'dWiGhTMulcahy@gmail.com',      # Type in your E-Mail
-  url = 'https://github.com/dwightmulcahy/healthchecker.server',   # Provide either the link to your github or to your website
-  download_url = 'https://github.com/user/reponame/archive/v_01.tar.gz',    # I explain this later on
-  keywords = ['HEALTH CHECK', 'MEANINGFULL', 'KEYWORDS'],   # Keywords that define your package best
-  install_requires=[            # I get to this in a second
-          'validators',
-          'beautifulsoup4',
-      ],
-  classifiers=[
-    'Development Status :: 4 - Beta',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
-    'Intended Audience :: Developers',      # Define that your audience are developers
-    'Topic :: Software Development :: Build Tools',
-    'License :: OSI Approved :: MIT License',   # Again, pick a license
-    'Programming Language :: Python :: 3.7',      #Specify which pyhton versions that you want to support
-    'Programming Language :: Python :: 3.8',
-  ],
+    name="healthchecker-server",
+    version="0.1.0",
+    description="Zeroconf-discoverable health-check monitoring service and client",
+    long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
+    author="Dwight Mulcahy",
+    url="https://github.com/dwightmulcahy/healthchecker.server",
+    packages=find_packages(include=["healthcheck", "healthcheck.*",
+                                    "healthchecker_server", "healthchecker_server.*",
+                                    "utils", "utils.*"]),
+    python_requires=">=3.10",
+    install_requires=[
+        "requests",
+        "zeroconf",
+        "flask",
+        "Flask-API.yandex",
+        "transitions",
+        "validators",
+        "waitress",
+        "apscheduler",
+        "prettytable",
+        "gmail",
+        "click",
+        "click-config-file",
+    ],
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+    ],
 )

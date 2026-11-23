@@ -78,9 +78,9 @@ class Health(object):
         """Install the callback used for health transition notifications.
         
         Args:
-            appname: Input used by this operation.
-            emailAddr: Input used by this operation.
-            emailCallback: Input used by this operation.
+            appname: Name of the monitored application.
+            emailAddr: Address to receive health notifications.
+            emailCallback: Callable invoked when a state transition requires notification.
         
         Returns:
             The result of this operation.

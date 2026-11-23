@@ -5,6 +5,11 @@ from requests.adapters import HTTPAdapter
 
 
 def getMyIpAddr():
+    """Determine a usable local IPv4 address, falling back to loopback.
+    
+    Returns:
+        The result of this operation.
+    """
     s = socket(AF_INET, SOCK_DGRAM)
     try:
         # google DNS should be ping-able
@@ -18,6 +23,11 @@ def getMyIpAddr():
 
 
 def findFreePort():
+    """Look up a currently available TCP port.
+    
+    Returns:
+        The result of this operation.
+    """
     with closing(socket(AF_INET, SOCK_STREAM)) as s:
         s.bind(('', 0))
         s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -43,6 +53,17 @@ class IPUtil:
 
 # This creates a session request that will retry with backoff timing.
 def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 502, 504), session=None):
+    """Configure HTTP and HTTPS adapters with retry behavior.
+    
+    Args:
+        retries: Input used by this operation.
+        backoff_factor: Input used by this operation.
+        status_forcelist: Input used by this operation.
+        session: Input used by this operation.
+    
+    Returns:
+        The result of this operation.
+    """
     session = session or Session()
     retry = packages.urllib3.util.retry.Retry(
         total=retries,

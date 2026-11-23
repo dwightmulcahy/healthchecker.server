@@ -31,7 +31,7 @@ def render_status_page(monitors, controls_enabled=False):
                 f'<button type="submit" name="action" value="{action}">'
                 f'{action_label}</button>'
                 '<button type="submit" name="action" value="stop" '
-                'onclick="return confirm(\'Stop monitoring this app?\')">'
+                '>'
                 'Stop</button></form>'
             )
         else:

@@ -56,10 +56,10 @@ def requestsRetrySession(retries=1, backoff_factor=0.3, status_forcelist=(500, 5
     """Configure HTTP and HTTPS adapters with retry behavior.
     
     Args:
-        retries: Input used by this operation.
-        backoff_factor: Input used by this operation.
-        status_forcelist: Input used by this operation.
-        session: Input used by this operation.
+        retries: Maximum retry attempts.
+        backoff_factor: Multiplier controlling retry backoff.
+        status_forcelist: HTTP status codes that trigger a retry.
+        session: Optional existing requests session to configure.
     
     Returns:
         The result of this operation.

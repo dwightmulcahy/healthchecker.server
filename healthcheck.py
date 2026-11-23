@@ -102,10 +102,10 @@ class HealthCheckResponse:
 
     def output(self, value):
         """
-        ???
+        Set the optional output message included in the response.
 
-        Parameters:
-            value (string): the version specifier
+        Args:
+            value (str): Additional diagnostic output for the health check.
 
         Returns:
             HealthCheckResponse: self

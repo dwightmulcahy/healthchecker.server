@@ -29,6 +29,7 @@ def route():
         "jsonify": lambda value: value,
         "make_response": lambda value, code: (value, code),
         "appsMonitored": state,
+        "appStore": None,
         "logging": MagicMock(),
         "Health": MagicMock(),
         "AppData": MagicMock(),

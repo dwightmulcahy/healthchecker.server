@@ -1,0 +1,19 @@
+[run]
+branch = True
+source =
+    healthcheck
+    healthchecker_server
+    http_status
+    iputils
+    statemachine
+    uptime
+    monitor_validation
+    monitor_store
+    status_page
+
+[report]
+show_missing = True
+precision = 2
+fail_under = 90
+exclude_lines =
+    pragma: no cover

@@ -174,11 +174,11 @@ class HealthCheckResponse:
     def build(self):
         """Builds the complete response"""
         res = make_response(jsonify(self.responseDict), self.httpcode)
-        res.headers = {
+        res.headers.update({
             'Content-Type': 'application/health+json',
             'Cache-Control': 'max-age=3600',
             'Connection': 'close',
-        }
+        })
         return res
 
 

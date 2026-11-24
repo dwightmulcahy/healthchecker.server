@@ -48,7 +48,7 @@ def test_complete_healthcheck_response_builder(app):
     assert body["notes"] == "note"
     assert body["details"] == {"ok": True}
     assert body["foo"] == "bar"
-    assert body["checks"] if False else body["database"]["status"] == "pass"
+    assert body["database"]["status"] == "pass"
     assert body["docs"] == "https://example.org"
 
 

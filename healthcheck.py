@@ -70,7 +70,7 @@ class HealthCheckResponse:
         The health check response is built with the minimal required field, `status`
         and assumed to be failing.
         """
-        self.responseDict = {"status": HealthStatus.FAIL, "version": "1"}
+        self.responseDict = {"status": HealthStatus.FAIL.value, "version": "1"}
         self.httpcode = status.HTTP_400_BAD_REQUEST
 
     def status(self, stat: HealthStatus = HealthStatus.PASS, httpcode: int = status.HTTP_200_OK):

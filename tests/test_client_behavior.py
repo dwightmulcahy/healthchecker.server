@@ -9,12 +9,6 @@ from flask import Flask
 import healthcheck
 
 
-@pytest.fixture(autouse=True)
-def no_client_destructor_network_calls(monkeypatch):
-    """Prevent legacy client destructor from making actual network requests."""
-    monkeypatch.setattr(healthcheck.HealthCheckerServer, "__del__", lambda self: None)
-
-
 @pytest.fixture
 def app():
     app = Flask(__name__)
@@ -146,3 +140,7 @@ def test_client_control_shortcuts(discovered):
     ]
     assert all(call.kwargs["paramsDict"] == {"appname": "app"}
                for call in client.get.call_args_list)
+
+
+def test_monitor_client_has_no_implicit_network_destructor():
+    assert "__del__" not in healthcheck.HealthCheckerServer.__dict__

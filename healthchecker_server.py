@@ -407,6 +407,9 @@ class CustomJSONProvider(DefaultJSONProvider):
         return super().default(obj)
 
 
+app.json = CustomJSONProvider(app)
+
+
 @app.route('/healthchecker/status')
 def statusPage():
     """Display the current monitoring state and interactive admin controls."""

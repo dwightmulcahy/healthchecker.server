@@ -205,9 +205,6 @@ class HealthCheckerServer:
             self.healthCheckerUrl = "ServiceNotFound"
         r.close()
 
-    def __del__(self):
-        self.stop()
-
     def url(self):
         """Return the discovered monitoring server endpoint.
         

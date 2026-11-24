@@ -1,6 +1,7 @@
 """Security regression coverage of real Flask monitoring-control endpoints."""
 
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,7 +10,7 @@ import healthchecker_server as server
 
 @pytest.fixture
 def controls(monkeypatch):
-    monkeypatch.setattr(server, "appsMonitored", {"service-a": object()})
+    monkeypatch.setattr(server, "appsMonitored", {"service-a": SimpleNamespace(url="https://example.org", healthState=SimpleNamespace(state=SimpleNamespace(name="HEALTHY")))})
     scheduler = MagicMock()
     monkeypatch.setattr(server, "sched", scheduler)
     store = MagicMock()

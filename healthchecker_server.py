@@ -294,7 +294,7 @@ def healthCheck(appname: str):
 def _control_authorized():
     """Require a bearer token for legacy GET controls when configured."""
     token = environ.get("HEALTHCHECK_ADMIN_TOKEN", "")
-    return not token or compare_digest(
+    return bool(token) and compare_digest(
         request.headers.get("Authorization", ""), "Bearer " + token
     )
 

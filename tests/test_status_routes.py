@@ -105,7 +105,7 @@ def test_successful_control_redirects_after_persisting(routes):
 
 
 def test_legacy_guard_requires_bearer_only_when_configured(routes):
-    assert routes["_control_authorized"]()
+    assert not routes["_control_authorized"]()
     routes["environ"]["HEALTHCHECK_ADMIN_TOKEN"] = "secure-token"
     assert not routes["_control_authorized"]()
     routes["request"].headers["Authorization"] = "Bearer secure-token"

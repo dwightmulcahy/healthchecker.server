@@ -103,8 +103,9 @@ token when you submit a control form; the token is not embedded in HTML.
 Use HTTPS via a trusted reverse proxy before entering the token: the
 historical server itself serves HTTP. When an admin token is configured,
 legacy GET control endpoints also require an `Authorization: Bearer <token>`
-header. Without a token, the page is read-only, although legacy GET control
-endpoints retain their historical behavior and must not be exposed publicly.
+header. Without a token, the page is read-only and both interactive POST controls
+and legacy GET controls reject state-changing requests. Keep the service
+behind an authenticated HTTPS reverse proxy; use a long random admin token.
 
 ## Monitor parameters
 

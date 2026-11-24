@@ -126,7 +126,7 @@ field-specific error details. Email is optional.
 | `GET /health` | Health of the monitoring server |
 | `POST /healthchecker/monitor` | Register an application for checks |
 | `GET /healthchecker/info?appname=...` | Information about a registered application |
-| `GET /healthchecker/status` | Monitoring status endpoint (interactive UI not yet implemented) |
+| `GET /healthchecker/status` | Interactive monitoring status dashboard |
 | `GET /healthchecker/pause?appname=...` | Pause a check |
 | `GET /healthchecker/resume?appname=...` | Resume a check |
 | `GET /healthchecker/stopmonitoring?appname=...` | Stop a check |
@@ -137,12 +137,16 @@ hardened for exposure to untrusted networks.
 ## Development and tests
 
 ```sh
-python -m pip install pytest pytest-cov requests
-python -m pytest -q tests
+python -m pip install -e . pytest pytest-cov pytest-timeout
+python -m pytest -q tests --timeout=10 --cov --cov-config=.coveragerc \\
+  --cov-branch --cov-report=term-missing --cov-fail-under=90
 ```
 
-GitHub Actions runs lint, security checks, pytest, and targeted module coverage
-gates. These do **not** yet establish 90% coverage across the entire server.
+GitHub Actions runs lint, security checks, real Flask integration tests,
+packaging checks, and a **repository-wide 90% branch-inclusive coverage gate**.
+The coverage source list is maintained in `.coveragerc` and includes every
+production module. An XML coverage report is attached to the CI run.
+Tests have a per-test timeout to detect accidental network calls or hangs.
 
 For more detail see [the client guide](docs/client.md), [the example](example/healthcheck_example.py),
 and the [issue tracker](https://github.com/dwightmulcahy/healthchecker.server/issues).

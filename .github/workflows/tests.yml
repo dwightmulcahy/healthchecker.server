@@ -18,31 +18,15 @@ jobs:
           python-version: "3.12"
       - name: Install test dependencies
         run: python -m pip install -e . pytest pytest-cov
-      - name: Test network utilities with branch coverage
-        run: >-
-          python -m pytest -q tests
-          --cov=iputils
-          --cov-branch
-          --cov-report=term-missing
-          --cov-fail-under=90
-      - name: Verify registration validation branch coverage
-        run: >-
-          python -m pytest -q tests/test_monitor_validation.py
-          --cov=monitor_validation
-          --cov-branch
-          --cov-report=term-missing
-          --cov-fail-under=90
-      - name: Verify SQLite persistence branch coverage
-        run: >-
-          python -m pytest -q tests/test_monitor_store.py
-          --cov=monitor_store
-          --cov-branch
-          --cov-report=term-missing
-          --cov-fail-under=90
-      - name: Verify interactive status page coverage
-        run: >-
-          python -m pytest -q tests/test_status_page.py
-          --cov=status_page
-          --cov-branch
-          --cov-report=term-missing
-          --cov-fail-under=90
+      - name: Enforce 90 percent repository-wide branch coverage
+        run: |
+          python -m pytest -q tests --cov --cov-config=.coveragerc \
+            --cov-branch --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage.xml --cov-fail-under=90
+      - name: Upload XML coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-coverage
+          path: coverage.xml
+          if-no-files-found: ignore

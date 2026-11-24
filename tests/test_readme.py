@@ -21,4 +21,4 @@ def test_readme_warns_about_legacy_runtime_and_unprotected_controls():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
     assert "not verified as published on PyPI" in readme
     assert "untrusted networks" in readme
-    assert "90% coverage across the entire server" in readme
+    assert "repository-wide 90% branch-inclusive coverage gate" in readme

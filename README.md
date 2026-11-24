@@ -126,7 +126,7 @@ field-specific error details. Email is optional.
 | `GET /health` | Health of the monitoring server |
 | `POST /healthchecker/monitor` | Register an application for checks |
 | `GET /healthchecker/info?appname=...` | Information about a registered application |
-| `GET /healthchecker/status` | Monitoring status endpoint (interactive UI not yet implemented) |
+| `GET /healthchecker/status` | Interactive monitoring status dashboard |
 | `GET /healthchecker/pause?appname=...` | Pause a check |
 | `GET /healthchecker/resume?appname=...` | Resume a check |
 | `GET /healthchecker/stopmonitoring?appname=...` | Stop a check |
